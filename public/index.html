@@ -563,6 +563,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 const data = await res.json();
                 if(data.success){
+                    // Save user info for session
+                    localStorage.setItem('user', JSON.stringify(data.user || {name, email, phone}));
                     window.location.href = 'main.html';
                 } else {
                     alert(data.message);
@@ -590,6 +592,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 const data = await res.json();
                 if(data.success){
+                    localStorage.setItem('user', JSON.stringify(data.user || {email}));
                     window.location.href = 'main.html';
                 } else {
                     alert(data.message);
@@ -602,16 +605,49 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // SOS Button Animation
+    // SOS Button
     const sosButton = document.querySelector('.sos-button');
-    sosButton.addEventListener('click', function(){
+    sosButton.addEventListener('click', async function(){
+        const user = JSON.parse(localStorage.getItem('user'));
+        if(!user){
+            alert('Please login first!');
+            return;
+        }
+
+        // Get current location
+        if(navigator.geolocation){
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+
+                // Placeholder: send to backend (Twilio SMS will use this)
+                try {
+                    const res = await fetch('/sos', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ userId: user._id, lat, lng })
+                    });
+                    const data = await res.json();
+                    if(data.success){
+                        alert('SOS sent successfully!');
+                    } else {
+                        alert(data.message);
+                    }
+                } catch(err){
+                    alert('Error sending SOS');
+                }
+            }, () => alert('Location access denied'));
+        } else {
+            alert('Geolocation not supported by your browser');
+        }
+
+        // Animation
         this.style.transform = 'scale(1.1)';
         this.style.boxShadow = '0 0 30px rgba(255, 59, 108, 0.8)';
         setTimeout(() => {
             this.style.transform = 'scale(1)';
             this.style.boxShadow = '0 10px 30px rgba(255, 59, 108, 0.4)';
         }, 300);
-        alert('Please login to use the SOS feature.');
     });
 });
 </script>
