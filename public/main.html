@@ -4,124 +4,163 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Guardian Angel - Dashboard</title>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="styles.css">
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <style>
-  body { font-family: Arial, sans-serif; margin:0; padding:0; }
-  header { background: #ff3b6c; color: white; padding: 1rem; text-align:center; }
-  .container { padding: 1rem; }
-  .sos-button { background:#ff3b6c;color:white;font-size:1.5rem;padding:1rem 2rem;border:none;border-radius:10px;cursor:pointer;box-shadow:0 10px 30px rgba(255,59,108,0.4);margin-bottom:1rem;transition:0.3s; }
-  .contact-list { margin-bottom:1rem; }
-  input, button { padding:0.5rem; margin:0.3rem 0; width:100%; max-width:300px; }
-  #map { height:400px; margin-top:1rem; }
+body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+header { background: #ff3b6c; color: #fff; padding: 10px; text-align: center; }
+#map { height: 60vh; width: 100%; }
+.contacts { padding: 15px; }
+.contact-list { list-style: none; padding: 0; }
+.contact-list li { margin: 5px 0; display: flex; justify-content: space-between; }
+button.sos-button { background: #ff3b6c; color: #fff; border: none; padding: 15px 30px; font-size: 18px; border-radius: 8px; cursor: pointer; margin-top: 15px; }
+input, button { font-size: 16px; }
 </style>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 
 <header>
-  <h1>Guardian Angel Dashboard</h1>
+    <h1>Guardian Angel Dashboard</h1>
+    <button id="logoutBtn">Logout</button>
 </header>
 
-<div class="container">
-  <h2>Emergency Contacts</h2>
-  <div class="contact-list">
-    <input type="text" id="contact1" placeholder="Enter phone number +91xxxxxxxxxx">
-    <input type="text" id="contact2" placeholder="Enter phone number +91xxxxxxxxxx">
-    <button id="saveContactsBtn">Save Contacts</button>
-  </div>
+<div id="map"></div>
 
-  <button class="sos-button" id="sosBtn">🚨 SOS</button>
+<div class="contacts">
+    <h3>Emergency Contacts</h3>
+    <ul class="contact-list" id="contactList"></ul>
+    <input type="text" id="newContact" placeholder="Enter phone number (+91XXXXXXXXXX)">
+    <button id="addContactBtn">Add Contact</button>
+</div>
 
-  <h2>Nearby Safe Places</h2>
-  <div id="map"></div>
+<div style="text-align:center;">
+    <button class="sos-button" id="sosBtn">🚨 SOS</button>
 </div>
 
 <script>
-let userId = null; // Will be set after login
+let userId = localStorage.getItem('userId');
+let userName = localStorage.getItem('userName');
 let emergencyContacts = [];
 
-// Fetch user data from localStorage
-const userData = JSON.parse(localStorage.getItem('user'));
-if(userData){
-    userId = userData._id;
-    emergencyContacts = userData.emergencyContacts || [];
-    document.getElementById('contact1').value = emergencyContacts[0] || '';
-    document.getElementById('contact2').value = emergencyContacts[1] || '';
-} else {
-    alert("Please login first!");
+// Logout
+document.getElementById('logoutBtn').addEventListener('click', ()=>{
+    localStorage.clear();
     window.location.href = '/';
-}
-
-// Save emergency contacts
-document.getElementById('saveContactsBtn').addEventListener('click', async () => {
-    emergencyContacts = [
-        document.getElementById('contact1').value,
-        document.getElementById('contact2').value
-    ].filter(c => c);
-    try{
-        const res = await fetch('/updateContacts', {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ userId, emergencyContacts })
-        });
-        const data = await res.json();
-        if(data.success) alert('Contacts saved!');
-    }catch(err){ alert('Failed to save contacts'); }
 });
 
+// Map initialization
+const map = L.map('map').setView([20.5937, 78.9629], 5); // India center
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+let userMarker;
+function updateMap(lat, lng){
+    if(userMarker) map.removeLayer(userMarker);
+    userMarker = L.marker([lat,lng]).addTo(map).bindPopup('You are here').openPopup();
+    map.setView([lat,lng], 13);
+
+    // Fetch nearby Police & Hospital
+    fetch(`https://overpass-api.de/api/interpreter?data=[out:json];node(around:2000,${lat},${lng})[amenity~"police|hospital"];out;`)
+    .then(res=>res.json())
+    .then(data=>{
+        data.elements.forEach(el=>{
+            L.marker([el.lat, el.lon], {icon: L.icon({iconUrl:'https://cdn-icons-png.flaticon.com/512/252/252025.png', iconSize:[30,30]})})
+             .addTo(map)
+             .bindPopup(`${el.tags.name || 'Nearby Place'} (${el.tags.amenity})`);
+        });
+    });
+}
+
+// Get user current location
+navigator.geolocation.getCurrentPosition(pos=>{
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    updateMap(lat, lng);
+});
+
+// Fetch user data from backend
+async function fetchUser(){
+    try{
+        const res = await fetch(`/login`,{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({email: localStorage.getItem('userEmail'), password: localStorage.getItem('userPass')})
+        });
+        const data = await res.json();
+        if(data.success){
+            userId = data.user._id;
+            userName = data.user.name;
+            emergencyContacts = data.user.emergencyContacts || [];
+            renderContacts();
+        }else{
+            alert('Login session expired. Please login again.');
+            window.location.href='/';
+        }
+    }catch(err){ console.error(err); }
+}
+fetchUser();
+
+// Render contacts
+function renderContacts(){
+    const list = document.getElementById('contactList');
+    list.innerHTML = '';
+    emergencyContacts.forEach((c,i)=>{
+        const li = document.createElement('li');
+        li.textContent = c;
+        const del = document.createElement('button');
+        del.textContent = 'Delete';
+        del.addEventListener('click',()=>{ 
+            emergencyContacts.splice(i,1); 
+            updateContactsBackend(); 
+        });
+        li.appendChild(del);
+        list.appendChild(li);
+    });
+}
+
+// Add contact
+document.getElementById('addContactBtn').addEventListener('click',()=>{
+    const num = document.getElementById('newContact').value.trim();
+    if(num && !emergencyContacts.includes(num)){
+        emergencyContacts.push(num);
+        updateContactsBackend();
+        document.getElementById('newContact').value='';
+    }else{ alert('Enter valid or non-duplicate number'); }
+});
+
+// Update contacts in backend
+async function updateContactsBackend(){
+    try{
+        const res = await fetch(`/signup`,{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({name:userName,email:localStorage.getItem('userEmail'),phone:'',password:localStorage.getItem('userPass'),emergencyContacts})
+        });
+        const data = await res.json();
+        if(data.success) renderContacts();
+    }catch(err){ console.error(err); }
+}
+
 // SOS Button
-document.getElementById('sosBtn').addEventListener('click', () => {
-    if(emergencyContacts.length === 0){ alert('Add emergency contacts first!'); return; }
-    if(!navigator.geolocation){ alert('Geolocation not supported'); return; }
-    navigator.geolocation.getCurrentPosition(async (pos) => {
+document.getElementById('sosBtn').addEventListener('click', async ()=>{
+    if(!userId) return alert('Login first!');
+    navigator.geolocation.getCurrentPosition(async pos=>{
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
         try{
             const res = await fetch('/sos',{
                 method:'POST',
                 headers:{'Content-Type':'application/json'},
-                body: JSON.stringify({ userId, lat, lng })
+                body:JSON.stringify({userId,lat,lng})
             });
             const data = await res.json();
             if(data.success) alert('SOS sent successfully!');
-            else alert('Failed to send SOS: ' + data.message);
-        }catch(err){ alert('Error sending SOS'); }
+            else alert(data.message);
+        }catch(err){ console.error(err); alert('Error sending SOS'); }
     });
 });
-
-// Initialize map
-const map = L.map('map').setView([20.5937,78.9629], 5); // India center
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-    maxZoom:19
-}).addTo(map);
-
-// Fetch and show nearby police/hospital using Overpass API
-function fetchNearbyPlaces(){
-    if(!navigator.geolocation){ return; }
-    navigator.geolocation.getCurrentPosition(async (pos)=>{
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        map.setView([lat,lng],13);
-
-        const query = `
-        [out:json];
-        (
-          node["amenity"="police"](around:3000,${lat},${lng});
-          node["amenity"="hospital"](around:3000,${lat},${lng});
-        );
-        out;
-        `;
-        const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query);
-        const resp = await fetch(url);
-        const data = await resp.json();
-        data.elements.forEach(el=>{
-            L.marker([el.lat,el.lon]).addTo(map)
-            .bindPopup(el.tags.name || el.tags.amenity);
-        });
-    });
-}
-fetchNearbyPlaces();
 </script>
 
 </body>
