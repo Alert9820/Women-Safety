@@ -10,7 +10,7 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, '../public/index.html')));
+app.use(express.static(path.resolve('public'))); // public folder serve
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI, {
@@ -62,9 +62,13 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// Serve dashboard/main.html
+// Serve index.html and main.html
+app.get('/', (req, res) => {
+    res.sendFile(path.resolve('public/index.html'));
+});
+
 app.get('/main.html', (req, res) => {
-    res.sendFile(path.join(__dirname, '../public/main.html'));
+    res.sendFile(path.resolve('public/main.html'));
 });
 
 // Start Server
