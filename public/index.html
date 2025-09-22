@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guardian Angel - Women Safety App</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+        
+        :root {
+            --primary: #ff3b6c;
+            --secondary: #5e17eb;
+            --dark: #1e1c2a;
+            --light: #f8f9fa;
+            --gray: #6c757d;
+            --success: #28a745;
+            --warning: #ffc107;
+            --info: #17a2b8;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+            color: var(--dark);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            margin-bottom: 20px;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .logo i {
+            color: var(--primary);
+            font-size: 28px;
+        }
+        
+        .logo h1 {
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .nav-buttons {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border-radius: 50px;
+            border: none;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            color: white;
+            box-shadow: 0 4px 15px rgba(255, 59, 108, 0.3);
+        }
+        
+        .btn-outline {
+            background: transparent;
+            color: var(--dark);
+            border: 2px solid var(--dark);
+        }
+        
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        }
+        
+        /* Hero Section */
+        .hero {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .hero h2 {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .hero p {
+            font-size: 1.1rem;
+            color: var(--gray);
+            max-width: 700px;
+            margin-bottom: 30px;
+        }
+        
+        .sos-button {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 32px;
+            font-weight: 700;
+            box-shadow: 0 10px 30px rgba(255, 59, 108, 0.4);
+            cursor: pointer;
+            margin: 30px 0;
+            transition: all 0.3s ease;
+            position: relative;
+            animation: pulse 2s infinite;
+        }
+        
+        .sos-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 15px 40px rgba(255, 59, 108, 0.5);
+        }
+        
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(255, 59, 108, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 20px rgba(255, 59, 108, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(255, 59, 108, 0);
+            }
+        }
+        
+        /* Features Grid */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+        
+        .feature-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.12);
+        }
+        
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 15px;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        
+        .feature-card h3 {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            color: var(--dark);
+        }
+        
+        .feature-card p {
+            color: var(--gray);
+            line-height: 1.6;
+        }
+        
+        /* Advanced Features */
+        .advanced-features {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+            margin-bottom: 40px;
+        }
+        
+        .section-title {
+            font-size: 1.8rem;
+            text-align: center;
+            margin-bottom: 30px;
+            color: var(--dark);
+        }
+        
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            list-style-type: none;
+        }
+        
+        .feature-list li {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 10px;
+            background: var(--light);
+        }
+        
+        .feature-list i {
+            color: var(--primary);
+            font-size: 20px;
+        }
+        
+        /* Auth Modal */
+        .auth-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .auth-modal.active {
+            display: flex;
+        }
+        
+        .auth-form {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 450px;
+            position: relative;
+        }
+        
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--gray);
+        }
+        
+        .auth-form h2 {
+            text-align: center;
+            margin-bottom: 25px;
+            color: var(--dark);
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        
+        .form-footer {
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .form-footer a {
+            color: var(--primary);
+            text-decoration: none;
+            cursor: pointer;
+        }
+        
+        /* Tabs */
+        .auth-tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .auth-tab {
+            flex: 1;
+            text-align: center;
+            padding: 15px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .auth-tab.active {
+            border-bottom: 3px solid var(--primary);
+            color: var(--primary);
+            font-weight: 600;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 768px) {
+            .hero h2 {
+                font-size: 2rem;
+            }
+            
+            .sos-button {
+                width: 150px;
+                height: 150px;
+                font-size: 24px;
+            }
+            
+            .nav-buttons {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <i class="fas fa-shield-alt"></i>
+                <h1>Guardian Angel</h1>
+            </div>
+            <div class="nav-buttons">
+                <button class="btn btn-outline" id="downloadBtn"><i class="fas fa-download"></i> Download App</button>
+                <button class="btn btn-primary" id="loginBtn"><i class="fas fa-user"></i> Login</button>
+            </div>
+        </header>
+        
+        <section class="hero">
+            <h2>Your Safety is Our Priority</h2>
+            <p>Guardian Angel is a comprehensive women safety app with advanced features to keep you protected 24/7, anywhere you go.</p>
+            
+            <div class="sos-button">
+                SOS
+            </div>
+            
+            <p>Press the SOS button in case of emergency. Your location will be shared with your trusted contacts immediately.</p>
+            
+            <button class="btn btn-primary" id="getStartedBtn">Get Started <i class="fas fa-arrow-right"></i></button>
+        </section>
+        
+        <h2 class="section-title">Key Features</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-location-arrow"></i>
+                </div>
+                <h3>Real-Time Tracking</h3>
+                <p>Your loved ones can track your location in real-time through the app, ensuring your safety throughout your journey.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-map-marker-alt"></i>
+                </div>
+                <h3>Nearby Safe Places</h3>
+                <p>Find the nearest police stations, hospitals, and safe spots with directions on the interactive map.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-phone"></i>
+                </div>
+                <h3>Fake Call</h3>
+                <p>Get a fake incoming call to help you escape uncomfortable situations by pretending to take an important call.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-bell"></i>
+                </div>
+                <h3>Loud Siren</h3>
+                <p>Activate a loud alarm to attract attention and scare away potential attackers in emergency situations.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-microphone"></i>
+                </div>
+                <h3>Voice Command</h3>
+                <p>Use voice commands like "Help Me" to trigger alerts without touching your phone in critical situations.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <h3>Community Alerts</h3>
+                <p>Women in your area can share safety warnings and report incidents to keep the community informed.</p>
+            </div>
+        </div>
+        
+        <div class="advanced-features">
+            <h2 class="section-title">Advanced Protection Features</h2>
+            <ul class="feature-list">
+                <li><i class="fas fa-volume-up"></i> Volume Button SOS Trigger - Press volume button 3 times to send alert</li>
+                <li><i class="fas fa-robot"></i> Auto-Alert Mode - Detects abnormal movement and sends automatic alerts</li>
+                <li><i class="fas fa-network-wired"></i> Community Alert System - Share and receive safety warnings</li>
+                <li><i class="fas fa-angel"></i> Digital Guardian - Stay connected with loved ones for peace of mind</li>
+                <li><i class="fas fa-lock"></i> Web-Based SOS - Send alerts even without the app installed</li>
+                <li><i class="fas fa-map-marked-alt"></i> Live Location Sharing - Share your journey in real-time</li>
+            </ul>
+        </div>
+        
+        <footer>
+            <p>© 2023 Guardian Angel - Women Safety App. All rights reserved.</p>
+            <p>For emergencies, always dial your local emergency number.</p>
+        </footer>
+    </div>
+
+    <!-- Auth Modal -->
+    <div class="auth-modal" id="authModal">
+        <div class="auth-form">
+            <button class="close-btn" id="closeAuthModal">&times;</button>
+            
+            <div class="auth-tabs">
+                <div class="auth-tab active" data-tab="login">Login</div>
+                <div class="auth-tab" data-tab="signup">Sign Up</div>
+            </div>
+            
+            <div class="tab-content active" id="loginTab">
+                <h2><i class="fas fa-user"></i> Login to Your Account</h2>
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" placeholder="Enter your email">
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" placeholder="Enter your password">
+                </div>
+                <button class="btn btn-primary" style="width: 100%" id="loginSubmitBtn">Login</button>
+                <div class="form-footer">
+                    <p>Don't have an account? <a id="showSignupTab">Sign up</a></p>
+                </div>
+            </div>
+            
+            <div class="tab-content" id="signupTab">
+                <h2><i class="fas fa-user-plus"></i> Create an Account</h2>
+                <div class="form-group">
+                    <label for="signupName">Full Name</label>
+                    <input type="text" id="signupName" placeholder="Enter your full name">
+                </div>
+                <div class="form-group">
+                    <label for="signupEmail">Email Address</label>
+                    <input type="email" id="signupEmail" placeholder="Enter your email">
+                </div>
+                <div class="form-group">
+                    <label for="signupPhone">Phone Number</label>
+                    <input type="tel" id="signupPhone" placeholder="Enter your phone number">
+                </div>
+                <div class="form-group">
+                    <label for="signupPassword">Password</label>
+                    <input type="password" id="signupPassword" placeholder="Create a password">
+                </div>
+                <button class="btn btn-primary" style="width: 100%" id="signupSubmitBtn">Sign Up</button>
+                <div class="form-footer">
+                    <p>Already have an account? <a id="showLoginTab">Login</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auth Modal Elements
+    const authModal = document.getElementById('authModal');
+    const loginBtn = document.getElementById('loginBtn');
+    const getStartedBtn = document.getElementById('getStartedBtn');
+    const closeAuthModal = document.getElementById('closeAuthModal');
+    const showSignupTab = document.getElementById('showSignupTab');
+    const showLoginTab = document.getElementById('showLoginTab');
+    const authTabs = document.querySelectorAll('.auth-tab');
+    const loginSubmitBtn = document.getElementById('loginSubmitBtn');
+    const signupSubmitBtn = document.getElementById('signupSubmitBtn');
+
+    // Open/Close Auth Modal
+    function openAuthModal() { authModal.classList.add('active'); }
+    function closeModal() { authModal.classList.remove('active'); }
+
+    loginBtn.addEventListener('click', openAuthModal);
+    getStartedBtn.addEventListener('click', openAuthModal);
+    closeAuthModal.addEventListener('click', closeModal);
+    authModal.addEventListener('click', e => { if(e.target === authModal) closeModal(); });
+
+    // Switch tabs
+    function switchTab(tabName){
+        authTabs.forEach(tab => tab.dataset.tab === tabName ? tab.classList.add('active') : tab.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(content => content.id === tabName + 'Tab' ? content.classList.add('active') : content.classList.remove('active'));
+    }
+
+    showSignupTab.addEventListener('click', e => { e.preventDefault(); switchTab('signup'); });
+    showLoginTab.addEventListener('click', e => { e.preventDefault(); switchTab('login'); });
+    authTabs.forEach(tab => tab.addEventListener('click', () => switchTab(tab.dataset.tab)));
+
+    // Signup - send data to backend
+    signupSubmitBtn.addEventListener('click', async function(e){
+        e.preventDefault();
+        const name = document.getElementById('signupName').value;
+        const email = document.getElementById('signupEmail').value;
+        const phone = document.getElementById('signupPhone').value;
+        const password = document.getElementById('signupPassword').value;
+
+        if(name && email && phone && password){
+            try {
+                const res = await fetch('/signup', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name, email, phone, password})
+                });
+                const data = await res.json();
+                if(data.success){
+                    window.location.href = 'main.html';
+                } else {
+                    alert(data.message);
+                }
+            } catch(err){
+                alert('Server error. Try again later.');
+            }
+        } else {
+            alert('Please fill all fields');
+        }
+    });
+
+    // Login - send data to backend
+    loginSubmitBtn.addEventListener('click', async function(e){
+        e.preventDefault();
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+
+        if(email && password){
+            try {
+                const res = await fetch('/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email, password})
+                });
+                const data = await res.json();
+                if(data.success){
+                    window.location.href = 'main.html';
+                } else {
+                    alert(data.message);
+                }
+            } catch(err){
+                alert('Server error. Try again later.');
+            }
+        } else {
+            alert('Please enter both email and password');
+        }
+    });
+
+    // SOS Button Animation
+    const sosButton = document.querySelector('.sos-button');
+    sosButton.addEventListener('click', function(){
+        this.style.transform = 'scale(1.1)';
+        this.style.boxShadow = '0 0 30px rgba(255, 59, 108, 0.8)';
+        setTimeout(() => {
+            this.style.transform = 'scale(1)';
+            this.style.boxShadow = '0 10px 30px rgba(255, 59, 108, 0.4)';
+        }, 300);
+        alert('Please login to use the SOS feature.');
+    });
+});
+</script>
+</body>
+</html>
