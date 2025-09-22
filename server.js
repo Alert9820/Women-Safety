@@ -11,7 +11,7 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.resolve('public')));
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI, {
@@ -27,7 +27,7 @@ const userSchema = new mongoose.Schema({
     email: { type: String, unique: true },
     phone: String,
     password: String,
-    emergencyContacts: [String]
+    emergencyContacts: [String] // Array of phone numbers
 });
 
 const User = mongoose.model('User', userSchema);
@@ -35,7 +35,7 @@ const User = mongoose.model('User', userSchema);
 // Twilio Client
 const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
-// Signup
+// Signup Route
 app.post('/signup', async (req, res) => {
     const { name, email, phone, password, emergencyContacts } = req.body;
     if(!name || !email || !phone || !password) return res.json({ success: false, message: "All fields required" });
@@ -44,16 +44,16 @@ app.post('/signup', async (req, res) => {
         const existingUser = await User.findOne({ email });
         if(existingUser) return res.json({ success: false, message: "Email already exists" });
 
-        const newUser = new User({ name, email, phone, password, emergencyContacts });
+        const newUser = new User({ name, email, phone, password, emergencyContacts: emergencyContacts || [] });
         await newUser.save();
-        return res.json({ success: true });
+        return res.json({ success: true, user: newUser });
     } catch(err){
         console.error(err);
         return res.json({ success: false, message: "Server error" });
     }
 });
 
-// Login
+// Login Route
 app.post('/login', async (req, res) => {
     const { email, password } = req.body;
     if(!email || !password) return res.json({ success: false, message: "All fields required" });
@@ -68,19 +68,7 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// Update Emergency Contacts
-app.post('/updateContacts', async (req, res) => {
-    const { userId, emergencyContacts } = req.body;
-    try {
-        await User.findByIdAndUpdate(userId, { emergencyContacts });
-        return res.json({ success: true });
-    } catch(err) {
-        console.error(err);
-        return res.json({ success: false, message: "Update failed" });
-    }
-});
-
-// SOS
+// SOS Route
 app.post('/sos', async (req, res) => {
     const { userId, lat, lng } = req.body;
     if(!userId || !lat || !lng) return res.json({ success: false, message: "Missing data" });
@@ -89,8 +77,12 @@ app.post('/sos', async (req, res) => {
         const user = await User.findById(userId);
         if(!user) return res.json({ success: false, message: "User not found" });
 
+        if(!user.emergencyContacts || user.emergencyContacts.length === 0)
+            return res.json({ success: false, message: "No emergency contacts set" });
+
         const messageBody = `⚠️ EMERGENCY ALERT! ${user.name} needs help! Location: https://www.google.com/maps?q=${lat},${lng}`;
 
+        // Send SMS to each emergency contact
         for(const contact of user.emergencyContacts){
             await client.messages.create({
                 body: messageBody,
@@ -102,14 +94,18 @@ app.post('/sos', async (req, res) => {
         return res.json({ success: true, message: "SOS sent successfully" });
     } catch(err){
         console.error(err);
-        return res.json({ success: false, message: "SMS failed: " + err.message });
+        return res.json({ success: false, message: "Server error" });
     }
 });
 
-// Serve main.html
+// Serve HTML pages
+app.get('/', (req, res) => {
+    res.sendFile(path.resolve('public/index.html'));
+});
 app.get('/main.html', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public/main.html'));
+    res.sendFile(path.resolve('public/main.html'));
 });
 
+// Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
