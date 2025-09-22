@@ -1,154 +1,128 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Guardian Angel - Dashboard</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet/dist/leaflet.css" />
-    <style>
-        body { font-family: Arial, sans-serif; margin:0; padding:0; }
-        #map { height: 70vh; width: 100%; }
-        .container { padding: 20px; }
-        .sos-button { padding: 15px 25px; background: red; color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 18px; margin-bottom: 20px; }
-        .contact-form { margin-bottom: 20px; }
-        .contact-list { margin-top: 10px; }
-        .contact-item { display:flex; justify-content: space-between; padding:5px 0; }
-        .btn { padding:5px 10px; cursor:pointer; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guardian Angel - Dashboard</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  body { font-family: Arial, sans-serif; margin:0; padding:0; }
+  header { background: #ff3b6c; color: white; padding: 1rem; text-align:center; }
+  .container { padding: 1rem; }
+  .sos-button { background:#ff3b6c;color:white;font-size:1.5rem;padding:1rem 2rem;border:none;border-radius:10px;cursor:pointer;box-shadow:0 10px 30px rgba(255,59,108,0.4);margin-bottom:1rem;transition:0.3s; }
+  .contact-list { margin-bottom:1rem; }
+  input, button { padding:0.5rem; margin:0.3rem 0; width:100%; max-width:300px; }
+  #map { height:400px; margin-top:1rem; }
+</style>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
-    <div class="container">
-        <h1>Welcome, <span id="usernameDisplay">User</span></h1>
 
-        <button class="sos-button" id="sosBtn">🚨 SOS</button>
+<header>
+  <h1>Guardian Angel Dashboard</h1>
+</header>
 
-        <h2>Emergency Contacts</h2>
-        <div class="contact-form">
-            <input type="text" id="contactName" placeholder="Name">
-            <input type="text" id="contactNumber" placeholder="+91XXXXXXXXXX">
-            <button id="addContactBtn" class="btn">Add Contact</button>
-        </div>
-        <div class="contact-list" id="contactList"></div>
+<div class="container">
+  <h2>Emergency Contacts</h2>
+  <div class="contact-list">
+    <input type="text" id="contact1" placeholder="Enter phone number +91xxxxxxxxxx">
+    <input type="text" id="contact2" placeholder="Enter phone number +91xxxxxxxxxx">
+    <button id="saveContactsBtn">Save Contacts</button>
+  </div>
 
-        <h2>Map - Nearby Safe Places</h2>
-        <div id="map"></div>
-    </div>
+  <button class="sos-button" id="sosBtn">🚨 SOS</button>
 
-    <script src="https://cdn.jsdelivr.net/npm/leaflet/dist/leaflet.js"></script>
-    <script>
-        // User Data
-        let user = JSON.parse(localStorage.getItem('user')) || {name: 'User', _id: null, emergencyContacts: []};
-        document.getElementById('usernameDisplay').innerText = user.name;
+  <h2>Nearby Safe Places</h2>
+  <div id="map"></div>
+</div>
 
-        // Map Setup
-        const map = L.map('map').setView([20.5937, 78.9629], 5); // India default
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(map);
+<script>
+let userId = null; // Will be set after login
+let emergencyContacts = [];
 
-        let userMarker;
+// Fetch user data from localStorage
+const userData = JSON.parse(localStorage.getItem('user'));
+if(userData){
+    userId = userData._id;
+    emergencyContacts = userData.emergencyContacts || [];
+    document.getElementById('contact1').value = emergencyContacts[0] || '';
+    document.getElementById('contact2').value = emergencyContacts[1] || '';
+} else {
+    alert("Please login first!");
+    window.location.href = '/';
+}
 
-        function updateLocationMarker(lat, lng){
-            if(userMarker) map.removeLayer(userMarker);
-            userMarker = L.marker([lat, lng]).addTo(map).bindPopup("You are here").openPopup();
-            map.setView([lat, lng], 14);
-        }
-
-        // Get current location
-        function getCurrentLocation(callback){
-            if(navigator.geolocation){
-                navigator.geolocation.getCurrentPosition(position => {
-                    const lat = position.coords.latitude;
-                    const lng = position.coords.longitude;
-                    updateLocationMarker(lat, lng);
-                    callback(lat, lng);
-                }, err => {
-                    alert('Location access denied');
-                });
-            } else {
-                alert('Geolocation not supported');
-            }
-        }
-
-        // Add contact
-        const contactListEl = document.getElementById('contactList');
-        function renderContacts(){
-            contactListEl.innerHTML = '';
-            user.emergencyContacts.forEach((c, i) => {
-                const div = document.createElement('div');
-                div.className = 'contact-item';
-                div.innerHTML = `${c.name} - ${c.number} <button class="btn" onclick="removeContact(${i})">Remove</button>`;
-                contactListEl.appendChild(div);
-            });
-        }
-
-        function removeContact(index){
-            user.emergencyContacts.splice(index, 1);
-            localStorage.setItem('user', JSON.stringify(user));
-            renderContacts();
-        }
-
-        document.getElementById('addContactBtn').addEventListener('click', () => {
-            const name = document.getElementById('contactName').value.trim();
-            const number = document.getElementById('contactNumber').value.trim();
-            if(name && number){
-                user.emergencyContacts.push({name, number});
-                localStorage.setItem('user', JSON.stringify(user));
-                renderContacts();
-                document.getElementById('contactName').value = '';
-                document.getElementById('contactNumber').value = '';
-            } else alert('Enter name and number');
+// Save emergency contacts
+document.getElementById('saveContactsBtn').addEventListener('click', async () => {
+    emergencyContacts = [
+        document.getElementById('contact1').value,
+        document.getElementById('contact2').value
+    ].filter(c => c);
+    try{
+        const res = await fetch('/updateContacts', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ userId, emergencyContacts })
         });
+        const data = await res.json();
+        if(data.success) alert('Contacts saved!');
+    }catch(err){ alert('Failed to save contacts'); }
+});
 
-        renderContacts();
-
-        // SOS Button
-        document.getElementById('sosBtn').addEventListener('click', () => {
-            if(user.emergencyContacts.length === 0){
-                alert('Add at least one emergency contact!');
-                return;
-            }
-
-            getCurrentLocation((lat, lng) => {
-                fetch('/sos', {
-                    method: 'POST',
-                    headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({userId: user._id, lat, lng})
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if(data.success){
-                        alert('SOS sent successfully!');
-                    } else {
-                        alert('Error: ' + data.message);
-                    }
-                })
-                .catch(err => alert('Server error. Try again later.'));
+// SOS Button
+document.getElementById('sosBtn').addEventListener('click', () => {
+    if(emergencyContacts.length === 0){ alert('Add emergency contacts first!'); return; }
+    if(!navigator.geolocation){ alert('Geolocation not supported'); return; }
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        try{
+            const res = await fetch('/sos',{
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({ userId, lat, lng })
             });
+            const data = await res.json();
+            if(data.success) alert('SOS sent successfully!');
+            else alert('Failed to send SOS: ' + data.message);
+        }catch(err){ alert('Error sending SOS'); }
+    });
+});
+
+// Initialize map
+const map = L.map('map').setView([20.5937,78.9629], 5); // India center
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    maxZoom:19
+}).addTo(map);
+
+// Fetch and show nearby police/hospital using Overpass API
+function fetchNearbyPlaces(){
+    if(!navigator.geolocation){ return; }
+    navigator.geolocation.getCurrentPosition(async (pos)=>{
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        map.setView([lat,lng],13);
+
+        const query = `
+        [out:json];
+        (
+          node["amenity"="police"](around:3000,${lat},${lng});
+          node["amenity"="hospital"](around:3000,${lat},${lng});
+        );
+        out;
+        `;
+        const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query);
+        const resp = await fetch(url);
+        const data = await resp.json();
+        data.elements.forEach(el=>{
+            L.marker([el.lat,el.lon]).addTo(map)
+            .bindPopup(el.tags.name || el.tags.amenity);
         });
+    });
+}
+fetchNearbyPlaces();
+</script>
 
-        // Nearby Police/Hospital - real time using OpenStreetMap Overpass API
-        function showNearbyPlaces(lat, lng){
-            const query = `[out:json];
-                (
-                    node["amenity"="police"](around:5000,${lat},${lng});
-                    node["amenity"="hospital"](around:5000,${lat},${lng});
-                );
-                out;`;
-
-            fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`)
-            .then(res => res.json())
-            .then(data => {
-                data.elements.forEach(el => {
-                    L.marker([el.lat, el.lon]).addTo(map)
-                        .bindPopup(`${el.tags.name || el.tags.amenity}<br><a href="https://www.google.com/maps/dir/?api=1&destination=${el.lat},${el.lon}" target="_blank">Navigate</a>`);
-                });
-            })
-            .catch(err => console.error(err));
-        }
-
-        getCurrentLocation((lat,lng)=>{ showNearbyPlaces(lat,lng); });
-
-    </script>
 </body>
 </html>
