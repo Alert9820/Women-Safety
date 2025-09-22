@@ -4,58 +4,151 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Guardian Angel - Dashboard</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet/dist/leaflet.css" />
     <style>
-        body { font-family: 'Poppins', sans-serif; background: #f5f5f5; margin: 0; padding: 0; }
-        header { display: flex; justify-content: space-between; padding: 15px 30px; background: #ff3b6c; color: white; }
-        .btn { padding: 10px 20px; border: none; border-radius: 50px; cursor: pointer; color: white; background: #5e17eb; }
-        .sos-button { width: 200px; height: 200px; border-radius: 50%; background: red; color: white; font-size: 32px; display: flex; align-items: center; justify-content: center; margin: 50px auto; cursor: pointer; }
+        body { font-family: Arial, sans-serif; margin:0; padding:0; }
+        #map { height: 70vh; width: 100%; }
+        .container { padding: 20px; }
+        .sos-button { padding: 15px 25px; background: red; color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 18px; margin-bottom: 20px; }
+        .contact-form { margin-bottom: 20px; }
+        .contact-list { margin-top: 10px; }
+        .contact-item { display:flex; justify-content: space-between; padding:5px 0; }
+        .btn { padding:5px 10px; cursor:pointer; }
     </style>
 </head>
 <body>
-    <header>
-        <h1>Guardian Angel - Dashboard</h1>
-        <button class="btn" id="logoutBtn">Logout</button>
-    </header>
+    <div class="container">
+        <h1>Welcome, <span id="usernameDisplay">User</span></h1>
 
-    <div class="sos-button" id="sosBtn">SOS</div>
+        <button class="sos-button" id="sosBtn">🚨 SOS</button>
 
+        <h2>Emergency Contacts</h2>
+        <div class="contact-form">
+            <input type="text" id="contactName" placeholder="Name">
+            <input type="text" id="contactNumber" placeholder="+91XXXXXXXXXX">
+            <button id="addContactBtn" class="btn">Add Contact</button>
+        </div>
+        <div class="contact-list" id="contactList"></div>
+
+        <h2>Map - Nearby Safe Places</h2>
+        <div id="map"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/leaflet/dist/leaflet.js"></script>
     <script>
-        let currentUser = JSON.parse(localStorage.getItem('user'));
+        // User Data
+        let user = JSON.parse(localStorage.getItem('user')) || {name: 'User', _id: null, emergencyContacts: []};
+        document.getElementById('usernameDisplay').innerText = user.name;
 
-        if(!currentUser){
-            alert('Please login first');
-            window.location.href = '/';
+        // Map Setup
+        const map = L.map('map').setView([20.5937, 78.9629], 5); // India default
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        let userMarker;
+
+        function updateLocationMarker(lat, lng){
+            if(userMarker) map.removeLayer(userMarker);
+            userMarker = L.marker([lat, lng]).addTo(map).bindPopup("You are here").openPopup();
+            map.setView([lat, lng], 14);
         }
 
-        document.getElementById('logoutBtn').addEventListener('click', () => {
-            localStorage.removeItem('user');
-            window.location.href = '/';
+        // Get current location
+        function getCurrentLocation(callback){
+            if(navigator.geolocation){
+                navigator.geolocation.getCurrentPosition(position => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    updateLocationMarker(lat, lng);
+                    callback(lat, lng);
+                }, err => {
+                    alert('Location access denied');
+                });
+            } else {
+                alert('Geolocation not supported');
+            }
+        }
+
+        // Add contact
+        const contactListEl = document.getElementById('contactList');
+        function renderContacts(){
+            contactListEl.innerHTML = '';
+            user.emergencyContacts.forEach((c, i) => {
+                const div = document.createElement('div');
+                div.className = 'contact-item';
+                div.innerHTML = `${c.name} - ${c.number} <button class="btn" onclick="removeContact(${i})">Remove</button>`;
+                contactListEl.appendChild(div);
+            });
+        }
+
+        function removeContact(index){
+            user.emergencyContacts.splice(index, 1);
+            localStorage.setItem('user', JSON.stringify(user));
+            renderContacts();
+        }
+
+        document.getElementById('addContactBtn').addEventListener('click', () => {
+            const name = document.getElementById('contactName').value.trim();
+            const number = document.getElementById('contactNumber').value.trim();
+            if(name && number){
+                user.emergencyContacts.push({name, number});
+                localStorage.setItem('user', JSON.stringify(user));
+                renderContacts();
+                document.getElementById('contactName').value = '';
+                document.getElementById('contactNumber').value = '';
+            } else alert('Enter name and number');
         });
 
+        renderContacts();
+
+        // SOS Button
         document.getElementById('sosBtn').addEventListener('click', () => {
-            if(!navigator.geolocation){
-                alert('Geolocation not supported!');
+            if(user.emergencyContacts.length === 0){
+                alert('Add at least one emergency contact!');
                 return;
             }
 
-            navigator.geolocation.getCurrentPosition(position => {
-                const lat = position.coords.latitude;
-                const lng = position.coords.longitude;
-
+            getCurrentLocation((lat, lng) => {
                 fetch('/sos', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: currentUser._id, lat, lng })
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({userId: user._id, lat, lng})
                 })
                 .then(res => res.json())
                 .then(data => {
-                    if(data.success) alert('SOS sent successfully!');
-                    else alert('Error sending SOS: ' + data.message);
+                    if(data.success){
+                        alert('SOS sent successfully!');
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
                 })
-                .catch(err => console.error(err));
+                .catch(err => alert('Server error. Try again later.'));
             });
         });
+
+        // Nearby Police/Hospital - real time using OpenStreetMap Overpass API
+        function showNearbyPlaces(lat, lng){
+            const query = `[out:json];
+                (
+                    node["amenity"="police"](around:5000,${lat},${lng});
+                    node["amenity"="hospital"](around:5000,${lat},${lng});
+                );
+                out;`;
+
+            fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`)
+            .then(res => res.json())
+            .then(data => {
+                data.elements.forEach(el => {
+                    L.marker([el.lat, el.lon]).addTo(map)
+                        .bindPopup(`${el.tags.name || el.tags.amenity}<br><a href="https://www.google.com/maps/dir/?api=1&destination=${el.lat},${el.lon}" target="_blank">Navigate</a>`);
+                });
+            })
+            .catch(err => console.error(err));
+        }
+
+        getCurrentLocation((lat,lng)=>{ showNearbyPlaces(lat,lng); });
+
     </script>
 </body>
 </html>
