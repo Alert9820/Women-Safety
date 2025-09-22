@@ -68,6 +68,25 @@ app.post('/login', async (req, res) => {
     }
 });
 
+// Update emergency contacts
+app.post('/updateContacts', async (req, res) => {
+    const { userId, emergencyContacts } = req.body;
+    if(!userId || !emergencyContacts) return res.json({ success: false, message: "Missing data" });
+
+    try {
+        const user = await User.findById(userId);
+        if(!user) return res.json({ success: false, message: "User not found" });
+
+        user.emergencyContacts = emergencyContacts;
+        await user.save();
+
+        return res.json({ success: true, message: "Contacts updated" });
+    } catch(err){
+        console.error(err);
+        return res.json({ success: false, message: "Server error" });
+    }
+});
+
 // SOS Route
 app.post('/sos', async (req, res) => {
     const { userId, lat, lng } = req.body;
