@@ -11,7 +11,7 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, 'public'))); // public folder serve
+app.use(express.static(path.resolve('public'))); // public folder serve
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI, {
@@ -21,21 +21,23 @@ mongoose.connect(process.env.MONGO_URI, {
 .then(() => console.log('MongoDB connected'))
 .catch(err => console.error('MongoDB connection error:', err));
 
-// User Schema
-const userSchema = new mongoose.Schema({
-    name: String,
-    email: { type: String, unique: true },
-    phone: String,
-    password: String,
-    emergencyContacts: [String] // array of phone numbers
+// New UserX Schema
+const userXSchema = new mongoose.Schema({
+    name: { type: String, default: "x" },
+    email: { type: String, unique: true, default: "x" },
+    phone: { type: String, default: "x" },
+    password: { type: String, default: "x" },
+    emergencyContacts: { type: [String], default: ["x"] }
 });
 
-const User = mongoose.model('User', userSchema);
+const UserX = mongoose.model('userx', userXSchema);
 
 // Twilio Client
 const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
 // Routes
+
+// Signup
 app.post('/signup', async (req, res) => {
     const { name, email, phone, password, emergencyContacts } = req.body;
     if(!name || !email || !phone || !password){
@@ -43,25 +45,34 @@ app.post('/signup', async (req, res) => {
     }
 
     try {
-        const existingUser = await User.findOne({ email });
+        const existingUser = await UserX.findOne({ email });
         if(existingUser) return res.json({ success: false, message: "Email already exists" });
 
-        const newUser = new User({ name, email, phone, password, emergencyContacts });
+        const newUser = new UserX({
+            name,
+            email,
+            phone,
+            password,
+            emergencyContacts: emergencyContacts || []
+        });
+
         await newUser.save();
-        return res.json({ success: true });
+        return res.json({ success: true, message: "Signup successful", userId: newUser._id });
     } catch(err){
         console.error(err);
         return res.json({ success: false, message: "Server error" });
     }
 });
 
+// Login
 app.post('/login', async (req, res) => {
     const { email, password } = req.body;
     if(!email || !password) return res.json({ success: false, message: "All fields required" });
 
     try {
-        const user = await User.findOne({ email, password });
+        const user = await UserX.findOne({ email, password });
         if(!user) return res.json({ success: false, message: "Invalid credentials" });
+
         return res.json({ success: true, user });
     } catch(err){
         console.error(err);
@@ -69,13 +80,13 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// SOS Route - Send SMS to emergency contacts
+// SOS - Send SMS with current location
 app.post('/sos', async (req, res) => {
     const { userId, lat, lng } = req.body;
     if(!userId || !lat || !lng) return res.json({ success: false, message: "Missing data" });
 
     try {
-        const user = await User.findById(userId);
+        const user = await UserX.findById(userId);
         if(!user) return res.json({ success: false, message: "User not found" });
 
         const messageBody = `⚠️ EMERGENCY ALERT! ${user.name} needs help! Location: https://www.google.com/maps?q=${lat},${lng}`;
@@ -95,20 +106,15 @@ app.post('/sos', async (req, res) => {
     }
 });
 
-// Serve HTML files
+// Serve frontend files
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public/index.html'));
+    res.sendFile(path.resolve('public/index.html'));
 });
 
 app.get('/main.html', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public/main.html'));
+    res.sendFile(path.resolve('public/main.html'));
 });
 
-// Catch all for unknown routes
-app.use((req, res) => {
-    res.status(404).send('404 Not Found');
-});
-
-// Start Server
+// Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
