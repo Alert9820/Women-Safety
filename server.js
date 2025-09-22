@@ -11,7 +11,7 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
-app.use(express.static(path.resolve('public'))); // public folder serve
+app.use(express.static(path.join(__dirname, 'public')));
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI, {
@@ -21,43 +21,32 @@ mongoose.connect(process.env.MONGO_URI, {
 .then(() => console.log('MongoDB connected'))
 .catch(err => console.error('MongoDB connection error:', err));
 
-// New UserX Schema
-const userXSchema = new mongoose.Schema({
-    name: { type: String, default: "x" },
-    email: { type: String, unique: true, default: "x" },
-    phone: { type: String, default: "x" },
-    password: { type: String, default: "x" },
-    emergencyContacts: { type: [String], default: ["x"] }
+// User Schema
+const userSchema = new mongoose.Schema({
+    name: String,
+    email: { type: String, unique: true },
+    phone: String,
+    password: String,
+    emergencyContacts: [String]
 });
 
-const UserX = mongoose.model('userx', userXSchema);
+const User = mongoose.model('User', userSchema);
 
 // Twilio Client
 const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
-// Routes
-
 // Signup
 app.post('/signup', async (req, res) => {
     const { name, email, phone, password, emergencyContacts } = req.body;
-    if(!name || !email || !phone || !password){
-        return res.json({ success: false, message: "All fields required" });
-    }
+    if(!name || !email || !phone || !password) return res.json({ success: false, message: "All fields required" });
 
     try {
-        const existingUser = await UserX.findOne({ email });
+        const existingUser = await User.findOne({ email });
         if(existingUser) return res.json({ success: false, message: "Email already exists" });
 
-        const newUser = new UserX({
-            name,
-            email,
-            phone,
-            password,
-            emergencyContacts: emergencyContacts || []
-        });
-
+        const newUser = new User({ name, email, phone, password, emergencyContacts });
         await newUser.save();
-        return res.json({ success: true, message: "Signup successful", userId: newUser._id });
+        return res.json({ success: true });
     } catch(err){
         console.error(err);
         return res.json({ success: false, message: "Server error" });
@@ -70,9 +59,8 @@ app.post('/login', async (req, res) => {
     if(!email || !password) return res.json({ success: false, message: "All fields required" });
 
     try {
-        const user = await UserX.findOne({ email, password });
+        const user = await User.findOne({ email, password });
         if(!user) return res.json({ success: false, message: "Invalid credentials" });
-
         return res.json({ success: true, user });
     } catch(err){
         console.error(err);
@@ -80,13 +68,25 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// SOS - Send SMS with current location
+// Update Emergency Contacts
+app.post('/updateContacts', async (req, res) => {
+    const { userId, emergencyContacts } = req.body;
+    try {
+        await User.findByIdAndUpdate(userId, { emergencyContacts });
+        return res.json({ success: true });
+    } catch(err) {
+        console.error(err);
+        return res.json({ success: false, message: "Update failed" });
+    }
+});
+
+// SOS
 app.post('/sos', async (req, res) => {
     const { userId, lat, lng } = req.body;
     if(!userId || !lat || !lng) return res.json({ success: false, message: "Missing data" });
 
     try {
-        const user = await UserX.findById(userId);
+        const user = await User.findById(userId);
         if(!user) return res.json({ success: false, message: "User not found" });
 
         const messageBody = `⚠️ EMERGENCY ALERT! ${user.name} needs help! Location: https://www.google.com/maps?q=${lat},${lng}`;
@@ -102,19 +102,14 @@ app.post('/sos', async (req, res) => {
         return res.json({ success: true, message: "SOS sent successfully" });
     } catch(err){
         console.error(err);
-        return res.json({ success: false, message: "Server error" });
+        return res.json({ success: false, message: "SMS failed: " + err.message });
     }
 });
 
-// Serve frontend files
-app.get('/', (req, res) => {
-    res.sendFile(path.resolve('public/index.html'));
-});
-
+// Serve main.html
 app.get('/main.html', (req, res) => {
-    res.sendFile(path.resolve('public/main.html'));
+    res.sendFile(path.join(__dirname, 'public/main.html'));
 });
 
-// Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
