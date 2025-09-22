@@ -11,7 +11,7 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, '../public')));
+app.use(express.static(path.join(__dirname, 'public'))); // public folder serve
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI, {
@@ -27,7 +27,7 @@ const userSchema = new mongoose.Schema({
     email: { type: String, unique: true },
     phone: String,
     password: String,
-    emergencyContacts: [String] // Array of phone numbers
+    emergencyContacts: [String] // array of phone numbers
 });
 
 const User = mongoose.model('User', userSchema);
@@ -38,7 +38,9 @@ const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TO
 // Routes
 app.post('/signup', async (req, res) => {
     const { name, email, phone, password, emergencyContacts } = req.body;
-    if(!name || !email || !phone || !password) return res.json({ success: false, message: "All fields required" });
+    if(!name || !email || !phone || !password){
+        return res.json({ success: false, message: "All fields required" });
+    }
 
     try {
         const existingUser = await User.findOne({ email });
@@ -48,6 +50,7 @@ app.post('/signup', async (req, res) => {
         await newUser.save();
         return res.json({ success: true });
     } catch(err){
+        console.error(err);
         return res.json({ success: false, message: "Server error" });
     }
 });
@@ -61,6 +64,7 @@ app.post('/login', async (req, res) => {
         if(!user) return res.json({ success: false, message: "Invalid credentials" });
         return res.json({ success: true, user });
     } catch(err){
+        console.error(err);
         return res.json({ success: false, message: "Server error" });
     }
 });
@@ -76,7 +80,6 @@ app.post('/sos', async (req, res) => {
 
         const messageBody = `⚠️ EMERGENCY ALERT! ${user.name} needs help! Location: https://www.google.com/maps?q=${lat},${lng}`;
 
-        // Send SMS to each emergency contact
         for(const contact of user.emergencyContacts){
             await client.messages.create({
                 body: messageBody,
@@ -92,9 +95,18 @@ app.post('/sos', async (req, res) => {
     }
 });
 
-// Serve main.html after login
+// Serve HTML files
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public/index.html'));
+});
+
 app.get('/main.html', (req, res) => {
-    res.sendFile(path.join(__dirname, '../public/main.html'));
+    res.sendFile(path.join(__dirname, 'public/main.html'));
+});
+
+// Catch all for unknown routes
+app.use((req, res) => {
+    res.status(404).send('404 Not Found');
 });
 
 // Start Server
