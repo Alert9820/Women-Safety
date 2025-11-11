@@ -36,14 +36,14 @@ const userSchema = new mongoose.Schema({
     sosHistory: [{
         location: { lat: Number, lng: Number },
         timestamp: { type: Date, default: Date.now },
-        triggeredBy: String // 'button', 'volume', 'voice', 'auto'
+        triggeredBy: String
     }]
 });
 
 const User = mongoose.model('User', userSchema);
 
 // Fast2SMS Configuration
-const FAST2SMS_API_KEY = '6NVQulSjO1MpZgUqWabf8PryEnG9m3tdsAoY5wvXDRI7xL0BkTVLSTUHyshbpXYzuQ74Go5DNFdAqlvM';
+const FAST2SMS_API_KEY = process.env.FAST2SMS_API_KEY;
 
 // Fast2SMS Function
 async function sendFast2SMS(contacts, message) {
@@ -69,7 +69,7 @@ async function sendFast2SMS(contacts, message) {
     }
 }
 
-// Signup Route
+// Signup Route - FIXED
 app.post('/api/signup', async (req, res) => {
     const { name, email, phone, password } = req.body;
     if(!name || !email || !phone || !password) {
@@ -93,7 +93,7 @@ app.post('/api/signup', async (req, res) => {
         
         return res.json({ 
             success: true, 
-            userId: newUser._id,
+            userId: newUser._id, // ✅ MongoDB ObjectId
             name: newUser.name,
             email: newUser.email,
             phone: newUser.phone
@@ -104,7 +104,7 @@ app.post('/api/signup', async (req, res) => {
     }
 });
 
-// Login Route
+// Login Route - FIXED
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
     if(!email || !password) {
@@ -119,7 +119,7 @@ app.post('/api/login', async (req, res) => {
         
         return res.json({ 
             success: true, 
-            userId: user._id,
+            userId: user._id, // ✅ MongoDB ObjectId
             name: user.name,
             email: user.email,
             phone: user.phone
@@ -130,9 +130,14 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// Emergency Contacts Management
+// Emergency Contacts Management - FIXED
 app.get('/api/contacts/:userId', async (req, res) => {
     try {
+        // ✅ Check if valid MongoDB ObjectId
+        if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
+            return res.json({ success: false, message: "Invalid user ID" });
+        }
+
         const user = await User.findById(req.params.userId);
         if(!user) {
             return res.json({ success: false, message: "User not found" });
@@ -155,6 +160,11 @@ app.post('/api/contacts', async (req, res) => {
     }
 
     try {
+        // ✅ Check if valid MongoDB ObjectId
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            return res.json({ success: false, message: "Invalid user ID" });
+        }
+
         const user = await User.findById(userId);
         if(!user) {
             return res.json({ success: false, message: "User not found" });
@@ -174,7 +184,7 @@ app.post('/api/contacts', async (req, res) => {
     }
 });
 
-// SOS Route with Fast2SMS
+// SOS Route with Fast2SMS - FIXED
 app.post('/api/sos', async (req, res) => {
     const { userId, lat, lng, triggeredBy = 'button' } = req.body;
     
@@ -183,6 +193,11 @@ app.post('/api/sos', async (req, res) => {
     }
 
     try {
+        // ✅ Check if valid MongoDB ObjectId
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            return res.json({ success: false, message: "Invalid user ID" });
+        }
+
         const user = await User.findById(userId);
         if(!user) {
             return res.json({ success: false, message: "User not found" });
@@ -223,80 +238,7 @@ Please check on them immediately!`;
     }
 });
 
-// Volume Button SOS Trigger
-app.post('/api/sos/volume', async (req, res) => {
-    const { userId, lat, lng } = req.body;
-    
-    if(!userId || !lat || !lng) {
-        return res.json({ success: false, message: "Missing data" });
-    }
-
-    try {
-        const user = await User.findById(userId);
-        if(!user) {
-            return res.json({ success: false, message: "User not found" });
-        }
-
-        // Save volume-triggered SOS
-        user.sosHistory.push({
-            location: { lat, lng },
-            triggeredBy: 'volume'
-        });
-        await user.save();
-
-        if(user.emergencyContacts && user.emergencyContacts.length > 0) {
-            const googleMapsLink = `https://www.google.com/maps?q=${lat},${lng}`;
-            const message = `🚨 VOLUME BUTTON EMERGENCY! ${user.name} triggered SOS! 
-Location: ${googleMapsLink}
-Time: ${new Date().toLocaleString()}
-Phone might be locked - immediate attention needed!`;
-
-            await sendFast2SMS(user.emergencyContacts, message);
-        }
-
-        return res.json({ 
-            success: true, 
-            message: "Volume SOS triggered successfully"
-        });
-    } catch(err){
-        console.error('Volume SOS Error:', err);
-        return res.json({ success: false, message: "Failed to trigger SOS" });
-    }
-});
-
-// Update User Location
-app.post('/api/location', async (req, res) => {
-    const { userId, lat, lng } = req.body;
-    
-    if(!userId || !lat || !lng) {
-        return res.json({ success: false, message: "Missing data" });
-    }
-
-    try {
-        const user = await User.findById(userId);
-        if(!user) {
-            return res.json({ success: false, message: "User not found" });
-        }
-
-        // Save location to history (keep last 50 locations)
-        user.locationHistory.push({ lat, lng });
-        if(user.locationHistory.length > 50) {
-            user.locationHistory = user.locationHistory.slice(-50);
-        }
-        
-        await user.save();
-
-        return res.json({ 
-            success: true, 
-            message: "Location updated"
-        });
-    } catch(err){
-        console.error('Location Update Error:', err);
-        return res.json({ success: false, message: "Failed to update location" });
-    }
-});
-
-// Get Nearby Safe Places (Police Stations, Hospitals)
+// Get Nearby Safe Places - FIXED (Overpass API)
 app.get('/api/nearby-places', async (req, res) => {
     const { lat, lng, radius = 5000 } = req.query;
     
@@ -305,59 +247,58 @@ app.get('/api/nearby-places', async (req, res) => {
     }
 
     try {
-        // Using OpenStreetMap Nominatim API for nearby places
-        const places = [];
-        
-        // Search for police stations
-        const policeResponse = await axios.get(
-            `https://nominatim.openstreetmap.org/search?format=json&q=police+station&lat=${lat}&lon=${lng}&radius=${radius}`
-        );
-        
-        // Search for hospitals
-        const hospitalResponse = await axios.get(
-            `https://nominatim.openstreetmap.org/search?format=json&q=hospital&lat=${lat}&lon=${lng}&radius=${radius}`
+        const overpassQuery = `
+            [out:json][timeout:25];
+            (
+              node["amenity"="police"](around:${radius},${lat},${lng});
+              node["amenity"="hospital"](around:${radius},${lat},${lng});
+              node["amenity"="clinic"](around:${radius},${lat},${lng});
+            );
+            out body;
+            >;
+            out skel qt;
+        `;
+
+        const response = await axios.post(
+            'https://overpass-api.de/api/interpreter',
+            overpassQuery,
+            {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            }
         );
 
-        // Process police stations
-        policeResponse.data.forEach(place => {
-            places.push({
-                type: 'police',
-                name: place.display_name.split(',')[0] || 'Police Station',
-                address: place.display_name,
-                lat: parseFloat(place.lat),
-                lng: parseFloat(place.lon),
-                distance: calculateDistance(lat, lng, place.lat, place.lon)
-            });
+        const places = response.data.elements.map(element => {
+            return {
+                type: element.tags.amenity,
+                name: element.tags.name || element.tags.amenity,
+                address: element.tags['addr:street'] || 'Address not available',
+                lat: element.lat,
+                lng: element.lon,
+                distance: calculateDistance(lat, lng, element.lat, element.lon)
+            };
         });
 
-        // Process hospitals
-        hospitalResponse.data.forEach(place => {
-            places.push({
-                type: 'hospital',
-                name: place.display_name.split(',')[0] || 'Hospital',
-                address: place.display_name,
-                lat: parseFloat(place.lat),
-                lng: parseFloat(place.lon),
-                distance: calculateDistance(lat, lng, place.lat, place.lon)
-            });
-        });
-
-        // Sort by distance
         places.sort((a, b) => a.distance - b.distance);
 
         return res.json({ 
             success: true, 
-            places: places.slice(0, 20) // Return top 20 nearest places
+            places: places.slice(0, 15)
         });
     } catch(err){
         console.error('Nearby Places Error:', err);
-        return res.json({ success: false, message: "Failed to fetch nearby places" });
+        return res.json({ 
+            success: false, 
+            message: "Failed to fetch nearby places",
+            places: []
+        });
     }
 });
 
-// Helper function to calculate distance between two coordinates
+// Helper function to calculate distance
 function calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371; // Earth's radius in km
+    const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
     const a = 
@@ -365,7 +306,7 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
         Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
         Math.sin(dLon/2) * Math.sin(dLon/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c; // Distance in km
+    return R * c;
 }
 
 // Serve HTML pages
@@ -380,6 +321,3 @@ app.get('/dashboard.html', (req, res) => {
 // Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
-console.log('📱 Fast2SMS Integration: ACTIVE');
-console.log('🗺️  OpenStreetMap Integration: ACTIVE');
-console.log('🔊 Volume Button SOS: READY');
