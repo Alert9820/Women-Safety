@@ -242,9 +242,18 @@
             background: #2196F3;
         }
 
+        .notification.warning {
+            background: #ff9800;
+        }
+
         @keyframes slideIn {
             from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
         }
 
         /* Loading Spinner */
@@ -262,6 +271,28 @@
             to { transform: rotate(360deg); }
         }
 
+        /* User Info */
+        .user-info {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            width: 100%;
+        }
+
+        .user-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .user-phone {
+            opacity: 0.8;
+            font-size: 0.9rem;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .sos-button {
@@ -272,26 +303,41 @@
             h1 {
                 font-size: 1.5rem;
             }
+            
+            .nav-buttons {
+                flex-direction: column;
+                width: 100%;
+            }
+            
+            .nav-button {
+                width: 100%;
+            }
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <div class="logo">👼</div>
+        <div class="logo">🚨</div>
         <h1>Emergency SOS</h1>
         <p class="subtitle">Help is just one tap away</p>
     </div>
 
     <div class="sos-container">
+        <!-- User Info -->
+        <div class="user-info">
+            <div class="user-name" id="userName">Loading...</div>
+            <div class="user-phone" id="userPhone">+91 XXXXX XXXXX</div>
+        </div>
+
         <!-- SOS Main Button -->
-        <button class="sos-button pulse" id="sosButton" onclick="triggerSOS()">
+        <button class="sos-button pulse" id="sosButton">
             <div class="sos-icon">🚨</div>
             <div>SOS</div>
             <div>EMERGENCY</div>
         </button>
 
         <!-- Volume Button SOS -->
-        <button class="volume-sos" onclick="triggerVolumeSOS()">
+        <button class="volume-sos" id="volumeSosButton">
             <span>🔊</span>
             Volume Button SOS
         </button>
@@ -330,71 +376,162 @@
 
         <!-- Navigation -->
         <div class="nav-buttons">
-            <a href="dashboard.html" class="nav-button">Dashboard</a>
-            <a href="safe-places.html" class="nav-button">Safe Places</a>
-            <a href="settings.html" class="nav-button">Settings</a>
+            <a href="dashboard.html" class="nav-button">🏠 Dashboard</a>
+            <a href="safe-places.html" class="nav-button">🏥 Safe Places</a>
+            <a href="settings.html" class="nav-button">⚙️ Settings</a>
         </div>
     </div>
 
     <script>
-        // Global variables
+        // ===== GLOBAL VARIABLES =====
         let currentUser = null;
         let emergencyContacts = [];
+        let volumePressCount = 0;
+        let lastVolumePress = 0;
 
-        // Initialize when page loads
+        // ===== SESSION MANAGEMENT =====
         document.addEventListener('DOMContentLoaded', function() {
-            loadUserData();
-            checkLocationPermission();
-            loadSOSHistory();
+            console.log('🚨 SOS Page Loading...');
+            
+            // Check if user is logged in
+            const userId = localStorage.getItem('userId');
+            const userName = localStorage.getItem('userName');
+            const userPhone = localStorage.getItem('userPhone');
+            
+            if (!userId) {
+                showNotification('Please login first', 'error');
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 2000);
+                return;
+            }
+
+            // Set current user
+            currentUser = {
+                userId: userId,
+                name: userName,
+                phone: userPhone
+            };
+
+            // Update user info
+            document.getElementById('userName').textContent = userName || 'User';
+            document.getElementById('userPhone').textContent = userPhone || '+91 XXXXX XXXXX';
+
+            // Initialize SOS page
+            initializeSOSPage();
         });
 
-        // Load user data and contacts
-        async function loadUserData() {
+        // ===== INITIALIZE SOS PAGE =====
+        function initializeSOSPage() {
+            console.log('Initializing SOS page...');
+            
+            // Load emergency contacts
+            loadEmergencyContacts();
+            
+            // Check location permission
+            checkLocationPermission();
+            
+            // Load SOS history
+            loadSOSHistory();
+            
+            // Set up event listeners
+            setupEventListeners();
+            
+            // Set up volume button detection
+            setupVolumeButtonDetection();
+            
+            showNotification('SOS System Ready!', 'success');
+        }
+
+        // ===== EVENT LISTENERS =====
+        function setupEventListeners() {
+            // SOS Button
+            document.getElementById('sosButton').addEventListener('click', triggerSOS);
+            
+            // Volume SOS Button
+            document.getElementById('volumeSosButton').addEventListener('click', triggerVolumeSOS);
+            
+            // Keyboard shortcut for SOS (Spacebar)
+            document.addEventListener('keydown', function(event) {
+                if (event.code === 'Space' && event.target.tagName !== 'INPUT') {
+                    event.preventDefault();
+                    triggerSOS();
+                }
+            });
+        }
+
+        // ===== VOLUME BUTTON DETECTION =====
+        function setupVolumeButtonDetection() {
+            document.addEventListener('keydown', function(e) {
+                if (e.code === 'VolumeUp' || e.code === 'VolumeDown') {
+                    const now = Date.now();
+                    
+                    if (now - lastVolumePress > 2000) {
+                        volumePressCount = 0;
+                    }
+                    
+                    volumePressCount++;
+                    lastVolumePress = now;
+                    
+                    if (volumePressCount >= 3) {
+                        volumePressCount = 0;
+                        showNotification('Volume SOS Triggered!', 'warning');
+                        triggerVolumeSOS();
+                    }
+                }
+            });
+        }
+
+        // ===== LOAD EMERGENCY CONTACTS =====
+        function loadEmergencyContacts() {
             try {
-                const userData = JSON.parse(localStorage.getItem('currentUser'));
-                if (!userData || !userData.userId) {
-                    showNotification('Please login first', 'error');
-                    setTimeout(() => {
-                        window.location.href = 'index.html';
-                    }, 2000);
-                    return;
-                }
-
-                currentUser = userData;
+                // Load from localStorage first
+                emergencyContacts = JSON.parse(localStorage.getItem('emergencyContacts')) || [];
+                updateContactsUI();
                 
-                // Load emergency contacts
-                const response = await fetch(`/api/contacts/${userData.userId}`);
-                const data = await response.json();
-                
-                if (data.success) {
-                    emergencyContacts = data.contacts || [];
-                    updateContactsUI();
-                } else {
-                    showNotification('Failed to load contacts', 'error');
+                // Then try to load from server
+                if (currentUser && currentUser.userId) {
+                    fetch(`/api/contacts/${currentUser.userId}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success && data.contacts) {
+                                emergencyContacts = data.contacts;
+                                localStorage.setItem('emergencyContacts', JSON.stringify(emergencyContacts));
+                                updateContactsUI();
+                            }
+                        })
+                        .catch(error => {
+                            console.log('Using local contacts:', error);
+                        });
                 }
-
             } catch (error) {
-                console.error('Error loading user data:', error);
-                showNotification('Error loading data', 'error');
+                console.error('Error loading contacts:', error);
+                emergencyContacts = [];
+                updateContactsUI();
             }
         }
 
-        // Update contacts UI
+        // ===== UPDATE CONTACTS UI =====
         function updateContactsUI() {
             const contactsList = document.getElementById('contactsList');
             const contactsCount = document.getElementById('contactsCount');
             const contactsStatus = document.getElementById('contactsStatus');
 
             if (emergencyContacts.length === 0) {
-                contactsList.innerHTML = '<p style="text-align: center; opacity: 0.7;">No emergency contacts set</p>';
+                contactsList.innerHTML = `
+                    <div style="text-align: center; padding: 20px; opacity: 0.7;">
+                        <p>No emergency contacts set</p>
+                        <p style="font-size: 0.8rem; margin-top: 5px;">Add contacts in Dashboard</p>
+                    </div>
+                `;
                 contactsCount.textContent = '0 contacts';
                 contactsStatus.textContent = 'No contacts';
                 contactsStatus.className = 'status-value error';
             } else {
                 contactsList.innerHTML = emergencyContacts.map(contact => `
                     <div class="contact-item">
-                        <span>${contact}</span>
-                        <span class="status-value success">✅</span>
+                        <span>${formatPhoneNumber(contact)}</span>
+                        <span class="status-value success">✅ Ready</span>
                     </div>
                 `).join('');
                 contactsCount.textContent = `${emergencyContacts.length} contact${emergencyContacts.length > 1 ? 's' : ''}`;
@@ -403,7 +540,11 @@
             }
         }
 
-        // Check location permission
+        function formatPhoneNumber(phone) {
+            return phone.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
+        }
+
+        // ===== CHECK LOCATION PERMISSION =====
         async function checkLocationPermission() {
             const locationStatus = document.getElementById('locationStatus');
             
@@ -414,7 +555,6 @@
             }
 
             try {
-                // Try to get current position to check permission
                 await new Promise((resolve, reject) => {
                     navigator.geolocation.getCurrentPosition(resolve, reject, {
                         timeout: 5000,
@@ -431,7 +571,7 @@
             }
         }
 
-        // Get current location
+        // ===== GET CURRENT LOCATION =====
         function getCurrentLocation() {
             return new Promise((resolve, reject) => {
                 if (!navigator.geolocation) {
@@ -443,7 +583,8 @@
                     (position) => {
                         resolve({
                             lat: position.coords.latitude,
-                            lng: position.coords.longitude
+                            lng: position.coords.longitude,
+                            accuracy: position.coords.accuracy
                         });
                     },
                     (error) => {
@@ -470,7 +611,7 @@
             });
         }
 
-        // Main SOS Function
+        // ===== MAIN SOS FUNCTION =====
         async function triggerSOS() {
             if (!currentUser) {
                 showNotification('Please login first', 'error');
@@ -478,21 +619,25 @@
             }
 
             if (emergencyContacts.length === 0) {
-                showNotification('No emergency contacts set', 'error');
+                showNotification('No emergency contacts set. Please add contacts in Dashboard.', 'error');
                 return;
             }
 
             const sosButton = document.getElementById('sosButton');
             const smsStatus = document.getElementById('smsStatus');
+            const originalHTML = sosButton.innerHTML;
             
             try {
                 // Show loading state
                 sosButton.disabled = true;
-                sosButton.innerHTML = '<div class="loading"></div><div>Processing...</div>';
-                smsStatus.innerHTML = '<span class="loading"></span> Sending...';
-                
+                sosButton.innerHTML = '<div class="loading"></div><div>PROCESSING...</div>';
+                sosButton.style.animation = 'none';
+                smsStatus.innerHTML = '<span class="loading"></span> Sending Alerts...';
+                smsStatus.className = 'status-value pending';
+
                 // Get current location
                 const location = await getCurrentLocation();
+                console.log('📍 Location obtained:', location);
                 
                 // Send SOS request to server
                 const response = await fetch('/api/sos', {
@@ -509,42 +654,50 @@
                 });
 
                 const result = await response.json();
+                console.log('SOS Response:', result);
                 
                 if (result.success) {
-                    showNotification(result.message, 'success');
-                    smsStatus.textContent = 'Sent successfully';
+                    showNotification(`🚨 ${result.message}`, 'success');
+                    smsStatus.textContent = `Sent to ${result.details.contactsNotified} contacts`;
                     smsStatus.className = 'status-value success';
                     
                     // Update last SOS time
                     updateLastSOSStatus();
                     
-                    // Log SOS event
-                    console.log('🚨 SOS Sent Successfully:', result.details);
+                    // Emergency visual effects
+                    document.body.style.background = 'linear-gradient(135deg, #ff0000 0%, #8B0000 100%)';
+                    setTimeout(() => {
+                        document.body.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                    }, 3000);
+                    
                 } else {
-                    showNotification(result.message, 'error');
+                    showNotification(`❌ ${result.message}`, 'error');
                     smsStatus.textContent = 'Failed';
                     smsStatus.className = 'status-value error';
                 }
 
             } catch (error) {
                 console.error('SOS Error:', error);
-                showNotification('SOS failed: ' + error.message, 'error');
+                showNotification(`❌ SOS failed: ${error.message}`, 'error');
                 smsStatus.textContent = 'Failed';
                 smsStatus.className = 'status-value error';
             } finally {
                 // Reset button state
-                sosButton.disabled = false;
-                sosButton.innerHTML = '<div class="sos-icon">🚨</div><div>SOS</div><div>EMERGENCY</div>';
-                
-                // Reset SMS status after 5 seconds
                 setTimeout(() => {
-                    smsStatus.textContent = 'Ready';
-                    smsStatus.className = 'status-value';
-                }, 5000);
+                    sosButton.disabled = false;
+                    sosButton.innerHTML = originalHTML;
+                    sosButton.style.animation = 'pulse 1.5s infinite';
+                    
+                    // Reset SMS status after 5 seconds
+                    setTimeout(() => {
+                        smsStatus.textContent = 'Ready';
+                        smsStatus.className = 'status-value';
+                    }, 5000);
+                }, 2000);
             }
         }
 
-        // Volume Button SOS
+        // ===== VOLUME BUTTON SOS =====
         async function triggerVolumeSOS() {
             if (!currentUser) {
                 showNotification('Please login first', 'error');
@@ -574,19 +727,19 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    showNotification(result.message, 'success');
+                    showNotification(`🔊 ${result.message}`, 'success');
                     updateLastSOSStatus();
                 } else {
-                    showNotification(result.message, 'error');
+                    showNotification(`❌ ${result.message}`, 'error');
                 }
 
             } catch (error) {
                 console.error('Volume SOS Error:', error);
-                showNotification('Volume SOS failed: ' + error.message, 'error');
+                showNotification(`❌ Volume SOS failed: ${error.message}`, 'error');
             }
         }
 
-        // Load SOS history
+        // ===== LOAD SOS HISTORY =====
         async function loadSOSHistory() {
             if (!currentUser) return;
             
@@ -595,24 +748,25 @@
                 const data = await response.json();
                 
                 if (data.success && data.history.length > 0) {
-                    const lastSOS = data.history[0]; // Latest first
+                    const lastSOS = data.history[0];
                     const lastSOSStatus = document.getElementById('lastSOSStatus');
                     const timeAgo = getTimeAgo(new Date(lastSOS.timestamp));
                     lastSOSStatus.textContent = timeAgo;
+                    lastSOSStatus.className = 'status-value success';
                 }
             } catch (error) {
                 console.error('Error loading SOS history:', error);
             }
         }
 
-        // Update last SOS status
+        // ===== UPDATE LAST SOS STATUS =====
         function updateLastSOSStatus() {
             const lastSOSStatus = document.getElementById('lastSOSStatus');
             lastSOSStatus.textContent = 'Just now';
             lastSOSStatus.className = 'status-value success';
         }
 
-        // Utility function to show time ago
+        // ===== UTILITY FUNCTIONS =====
         function getTimeAgo(date) {
             const now = new Date();
             const diff = now - date;
@@ -626,42 +780,45 @@
             return `${days}d ago`;
         }
 
-        // Notification system
+        // ===== NOTIFICATION SYSTEM =====
         function showNotification(message, type = 'info') {
             // Remove existing notifications
             const existingNotifications = document.querySelectorAll('.notification');
-            existingNotifications.forEach(notif => notif.remove());
+            existingNotifications.forEach(notif => {
+                notif.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => {
+                    if (notif.parentNode) {
+                        notif.parentNode.removeChild(notif);
+                    }
+                }, 300);
+            });
 
             const notification = document.createElement('div');
             notification.className = `notification ${type}`;
-            notification.textContent = message;
+            notification.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'}"></i>
+                    <span>${message}</span>
+                </div>
+            `;
             
             document.body.appendChild(notification);
             
-            // Auto remove after 5 seconds
             setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.parentNode.removeChild(notification);
-                }
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
             }, 5000);
         }
 
-        // Add keyboard shortcut for SOS (Spacebar)
-        document.addEventListener('keydown', function(event) {
-            if (event.code === 'Space' && !event.target.tagName === 'INPUT') {
-                event.preventDefault();
-                triggerSOS();
-            }
-        });
-
-        // Prevent accidental refresh during SOS
-        window.addEventListener('beforeunload', function(event) {
-            const sosButton = document.getElementById('sosButton');
-            if (sosButton.disabled) {
-                event.preventDefault();
-                event.returnValue = 'SOS is being processed. Are you sure you want to leave?';
-            }
-        });
+        // Add Font Awesome for icons
+        const fontAwesome = document.createElement('link');
+        fontAwesome.rel = 'stylesheet';
+        fontAwesome.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css';
+        document.head.appendChild(fontAwesome);
     </script>
 </body>
 </html>
