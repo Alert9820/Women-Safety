@@ -669,253 +669,7 @@
         </div>
     </div>
 
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', async () => {
-            // ------------------- Session Handling -------------------
-            const userId = localStorage.getItem('userId');
-            const userName = localStorage.getItem('userName');
-            const userPhone = localStorage.getItem('userPhone');
-            
-            if(!userId) {
-                alert('Login session expired');
-                window.location.href = 'index.html';
-                return;
-            }
-
-            // Update user info
-            document.getElementById('userName').textContent = userName || 'User';
-            document.getElementById('userPhone').textContent = userPhone || '+91 XXXXX XXXXX';
-            document.getElementById('userAvatar').textContent = userName ? userName.charAt(0).toUpperCase() : 'U';
-
-
-                        // Logout functionality
-            document.getElementById('logoutBtn').addEventListener('click', () => {
-                localStorage.clear();
-                window.location.href = 'index.html';
-            });
-
-            // ------------------- Emergency Contacts -------------------
-            const contactListEl = document.getElementById('contactList');
-            let emergencyContacts = JSON.parse(localStorage.getItem('emergencyContacts')) || [];
-
-            // Load contacts from server
-            async function loadContactsFromServer() {
-                try {
-                    const response = await fetch(`/api/contacts/${userId}`);
-                    const data = await response.json();
-                    
-                    if(data.success && data.contacts) {
-                        emergencyContacts = data.contacts;
-                        localStorage.setItem('emergencyContacts', JSON.stringify(emergencyContacts));
-                        renderContacts();
-                    }
-                } catch(error) {
-                    console.log('Using local contacts');
-                }
-            }
-
-            function renderContacts(){
-                contactListEl.innerHTML = '';
-                
-                if(emergencyContacts.length === 0) {
-                    contactListEl.innerHTML = `
-                        <div style="text-align: center; padding: 20px; color: var(--gray);">
-                            <i class="fas fa-users" style="font-size: 48px; margin-bottom: 10px;"></i>
-                            <p>No emergency contacts added</p>
-                        </div>
-                    `;
-                    return;
-                }
-
-                emergencyContacts.forEach((contact, index) => {
-                    const contactItem = document.createElement('div');
-                    contactItem.className = 'contact-item';
-                    
-                    contactItem.innerHTML = `
-                        <div class="contact-info">
-                            <div class="contact-avatar">
-                                <i class="fas fa-user"></i>
-                            </div>
-                            <div class="contact-details">
-                                <h4>Contact ${index + 1}</h4>
-                                <p>${contact}</p>
-                            </div>
-                        </div>
-                        <button class="remove-btn" data-index="${index}">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    `;
-                    
-                    contactListEl.appendChild(contactItem);
-                });
-
-                // Add event listeners to remove buttons
-                document.querySelectorAll('.remove-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        const index = parseInt(e.currentTarget.getAttribute('data-index'));
-                        emergencyContacts.splice(index, 1);
-                        saveContacts();
-                    });
-                });
-            }
-
-            async function saveContacts(){
-                localStorage.setItem('emergencyContacts', JSON.stringify(emergencyContacts));
-                renderContacts();
-                
-                // Update server
-                try {
-                    await fetch('/api/contacts', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({userId, contacts: emergencyContacts})
-                    });
-                } catch(error) {
-                    console.log('Failed to sync contacts with server');
-                }
-            }
-
-            // Add contact functionality
-            document.getElementById('addContactBtn').addEventListener('click', addContact);
-            document.getElementById('addContactMainBtn').addEventListener('click', () => {
-                document.getElementById('newContact').focus();
-            });
-
-            document.getElementById('newContact').addEventListener('keypress', (e) => {
-                if(e.key === 'Enter') {
-                    addContact();
-                }
-            });
-
-            function addContact() {
-                const number = document.getElementById('newContact').value.trim();
-                
-                // Basic phone validation
-                const phoneRegex = /^(\+91[\-\s]?)?[0]?(91)?[6789]\d{9}$/;
-                
-                if(!number) {
-                    alert('Please enter a phone number');
-                    return;
-                }
-                
-                if(!phoneRegex.test(number)) {
-                    alert('Please enter a valid Indian phone number');
-                    return;
-                }
-                
-                if(emergencyContacts.includes(number)) {
-                    alert('This number is already in your emergency contacts');
-                    return;
-                }
-                
-                if(emergencyContacts.length >= 5) {
-                    alert('Maximum 5 emergency contacts allowed');
-                    return;
-                }
-
-                emergencyContacts.push(number);
-                document.getElementById('newContact').value = '';
-                saveContacts();
-                
-                // Show success message
-                showNotification('Contact added successfully!', 'success');
-            }
-
-            // Load initial contacts
-            await loadContactsFromServer();
-            renderContacts();
-
-            // ------------------- SOS Functionality -------------------
-            document.getElementById('sosBtn').addEventListener('click', triggerSOS);
-
-            async function triggerSOS() {
-                if(emergencyContacts.length === 0) {
-                    alert('Please add emergency contacts first!');
-                    document.getElementById('newContact').focus();
-                    return;
-                }
-
-                // Animation
-                const sosBtn = document.getElementById('sosBtn');
-                sosBtn.style.transform = 'scale(1.1)';
-                sosBtn.style.boxShadow = '0 0 40px rgba(255, 59, 108, 0.8)';
-                
-                setTimeout(() => {
-                    sosBtn.style.transform = 'scale(1)';
-                }, 300);
-
-                if(!navigator.geolocation) {
-                    alert('Geolocation not supported by your browser');
-                    return;
-                }
-
-                // Get current location
-                navigator.geolocation.getCurrentPosition(async (pos) => {
-                    const lat = pos.coords.latitude;
-                    const lng = pos.coords.longitude;
-
-                    try {
-                        const response = await fetch('/api/sos', {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({
-                                userId, 
-                                lat, 
-                                lng, 
-                                triggeredBy: 'button'
-                            })
-                        });
-                        
-                        const data = await response.json();
-                        
-                        if(data.success) {
-                            showNotification('SOS sent successfully! Emergency contacts notified.', 'success');
-                            
-                            // Update recent activity
-                            updateRecentActivity('SOS triggered', 'emergency');
-                        } else {
-                            showNotification('Failed to send SOS: ' + data.message, 'error');
-                        }
-                    } catch(error) {
-                        showNotification('Network error. Please try again.', 'error');
-                    }
-                }, (error) => {
-                    showNotification('Failed to get your location. Please enable location services.', 'error');
-                });
-            }
-
-            // ------------------- Quick Actions -------------------
-            document.getElementById('shareLocationBtn').addEventListener('click', () => {
-                shareLiveLocation();
-            });
-
-            document.getElementById('safePlacesBtn').addEventListener('click', () => {
-                document.getElementById('map').scrollIntoView({ behavior: 'smooth' });
-            });
-
-            document.getElementById('fakeCallBtn').addEventListener('click', triggerFakeCall);
-            document.getElementById('soundAlarmBtn').addEventListener('click', triggerAlarm);
-
-            // Share Live Location
-            async function shareLiveLocation() {
-                if(!navigator.geolocation) {
-                    alert('Geolocation not supported');
-                    return;
-                }
-
-                navigator.geolocation.getCurrentPosition(async (pos) => {
-                    const lat = pos.coords.latitude;
-                    const lng = pos.coords.longitude;
-                    
-                    try {
-                        await fetch('/api/location', {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({userId, lat, lng})
-                        });
-                        
-                        showNotification('Location shared with emergency contacts', 'success');
+                                        showNotification('Location shared with emergency contacts', 'success');
                     } catch(error) {
                         showNotification('Failed to share location', 'error');
                     }
@@ -960,112 +714,7 @@
                     `;
                 };
                 
-                window.rejectFakeCall = function() {
-                    document.getElementById('fakeCallOverlay').remove();
-                    showNotification('Call rejected', 'info');
-                };
-                
-                window.endFakeCall = function() {
-                    document.getElementById('fakeCallOverlay').remove();
-                    showNotification('Call ended', 'info');
-                };
-            }
-
-            // Sound Alarm
-            function triggerAlarm() {
-                showNotification('Loud alarm activated!', 'warning');
-                
-                // Create alarm sound using Web Audio API
-                try {
-                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                    const oscillator = audioContext.createOscillator();
-                    const gainNode = audioContext.createGain();
-                    
-                    oscillator.connect(gainNode);
-                    gainNode.connect(audioContext.destination);
-                    
-                    oscillator.frequency.value = 800;
-                    oscillator.type = 'sine';
-                    
-                    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 2);
-                    
-                    oscillator.start(audioContext.currentTime);
-                    oscillator.stop(audioContext.currentTime + 2);
-                    
-                } catch(error) {
-                    console.log('Audio not supported');
-                }
-            }
-
-            // ------------------- Nearby Safe Places Map -------------------
-            let map;
-            
-            function initializeMap() {
-                map = L.map('map').setView([20.5937, 78.9629], 5);
-                
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '&copy; OpenStreetMap contributors',
-                    maxZoom: 18
-                }).addTo(map);
-
-                // Get user location and show nearby places
-                if(navigator.geolocation) {
-                    navigator.geolocation.getCurrentPosition(showUserLocation, showDefaultMap);
-                } else {
-                    showDefaultMap();
-                }
-            }
-
-            function showUserLocation(position) {
-                const lat = position.coords.latitude;
-                const lng = position.coords.longitude;
-                
-                map.setView([lat, lng], 14);
-                
-                // Add user marker
-                const userMarker = L.marker([lat, lng]).addTo(map);
-                userMarker.bindPopup(`
-                    <div style="text-align: center;">
-                        <h4>Your Location</h4>
-                        <p>You are here</p>
-                    </div>
-                `).openPopup();
-                
-                // Add circle around user location
-                L.circle([lat, lng], {
-                    color: '#ff3b6c',
-                    fillColor: '#ff3b6c',
-                    fillOpacity: 0.1,
-                    radius: 1000
-                }).addTo(map);
-                
-                // Load nearby safe places
-                loadNearbyPlaces(lat, lng);
-            }
-
-            function showDefaultMap() {
-                // Default to India view if location not available
-                map.setView([20.5937, 78.9629], 5);
-            }
-
-            async function loadNearbyPlaces(lat, lng) {
-                try {
-                    const response = await fetch(`/api/nearby-places?lat=${lat}&lng=${lng}&radius=5000`);
-                    const data = await response.json();
-                    
-                    if(data.success && data.places) {
-                        data.places.forEach(place => {
-                            const markerColor = place.type === 'police' ? '#dc3545' : '#28a745';
-                            const icon = L.divIcon({
-                                className: 'custom-marker',
-                                html: `<div style="background: ${markerColor}; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>`,
-                                iconSize: [20, 20],
-                                iconAnchor: [10, 10]
-                            });
-                            
-                            const marker = L.marker([place.lat, place.lng], {icon: icon}).addTo(map);
-                            
+                                            
                             const popupContent = `
                                 <div style="min-width: 200px;">
                                     <h4 style="margin: 0 0 10px 0; color: ${markerColor};">
@@ -1081,120 +730,667 @@
                                         </button>
                                     </div>
                                 </div>
-                            `;
-                            
-                            marker.bindPopup(popupContent);
-                        });
-                    }
-                } catch(error) {
-                    console.log('Failed to load nearby places:', error);
-                }
-            }
+                        <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        // ===== SESSION MANAGEMENT =====
+        const userId = localStorage.getItem('userId');
+        const userName = localStorage.getItem('userName');
+        const userPhone = localStorage.getItem('userPhone');
+        
+        if(!userId) {
+            alert('Login session expired');
+            window.location.href = 'index.html';
+            return;
+        }
 
-            // ------------------- Utility Functions -------------------
-            function showNotification(message, type = 'info') {
-                // Create notification element
-                const notification = document.createElement('div');
-                notification.style.cssText = `
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    padding: 15px 20px;
-                    background: ${type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : type === 'warning' ? '#ffc107' : '#17a2b8'};
-                    color: white;
-                    border-radius: 8px;
-                    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-                    z-index: 10001;
-                    max-width: 300px;
-                    animation: slideIn 0.3s ease;
-                `;
+        // Update user info
+        document.getElementById('userName').textContent = userName || 'User';
+        document.getElementById('userPhone').textContent = userPhone || '+91 XXXXX XXXXX';
+        document.getElementById('userAvatar').textContent = userName ? userName.charAt(0).toUpperCase() : 'U';
+
+        // Logout functionality
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            localStorage.clear();
+            window.location.href = 'index.html';
+        });
+
+        // ===== EMERGENCY CONTACTS MANAGEMENT =====
+        const contactListEl = document.getElementById('contactList');
+        let emergencyContacts = JSON.parse(localStorage.getItem('emergencyContacts')) || [];
+
+        // Load contacts from server
+        async function loadContactsFromServer() {
+            try {
+                const response = await fetch(`/api/contacts/${userId}`);
+                const data = await response.json();
                 
-                notification.innerHTML = `
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : type === 'warning' ? 'bell' : 'info-circle'}"></i>
-                        <span>${message}</span>
+                if(data.success && data.contacts) {
+                    emergencyContacts = data.contacts;
+                    localStorage.setItem('emergencyContacts', JSON.stringify(emergencyContacts));
+                    renderContacts();
+                }
+            } catch(error) {
+                console.log('Using local contacts');
+            }
+        }
+
+        function renderContacts(){
+            contactListEl.innerHTML = '';
+            
+            if(emergencyContacts.length === 0) {
+                contactListEl.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: var(--gray);">
+                        <i class="fas fa-users" style="font-size: 48px; margin-bottom: 10px;"></i>
+                        <p>No emergency contacts added</p>
                     </div>
                 `;
-            document.body.appendChild(notification);
+                return;
+            }
+
+            emergencyContacts.forEach((contact, index) => {
+                const contactItem = document.createElement('div');
+                contactItem.className = 'contact-item';
                 
-                // Remove after 3 seconds
-                setTimeout(() => {
-                    notification.style.animation = 'slideOut 0.3s ease';
-                    setTimeout(() => {
-                        if(notification.parentNode) {
-                            notification.parentNode.removeChild(notification);
-                        }
-                    }, 300);
-                }, 3000);
-            }
-
-            function updateRecentActivity(message, type) {
-                // This would update the recent activity card
-                console.log('Activity:', message, type);
-            }
-
-            // Add CSS animations
-            const style = document.createElement('style');
-            style.textContent = `
-                @keyframes slideIn {
-                    from { transform: translateX(100%); opacity: 0; }
-                    to { transform: translateX(0); opacity: 1; }
-                }
-                @keyframes slideOut {
-                    from { transform: translateX(0); opacity: 1; }
-                    to { transform: translateX(100%); opacity: 0; }
-                }
-            `;
-            document.head.appendChild(style);
-
-            // ------------------- Volume Button SOS -------------------
-            let volumePressCount = 0;
-            let lastVolumePress = 0;
-
-            document.addEventListener('keydown', (e) => {
-                if (e.code === 'VolumeUp' || e.code === 'VolumeDown') {
-                    const now = Date.now();
-                    
-                    if (now - lastVolumePress > 2000) {
-                        volumePressCount = 0;
-                    }
-                    
-                    volumePressCount++;
-                    lastVolumePress = now;
-                    
-                    if (volumePressCount >= 3) {
-                        volumePressCount = 0;
-                        triggerVolumeSOS();
-                    }
-                }
+                contactItem.innerHTML = `
+                    <div class="contact-info">
+                        <div class="contact-avatar">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="contact-details">
+                            <h4>Contact ${index + 1}</h4>
+                            <p>${contact}</p>
+                        </div>
+                    </div>
+                    <button class="remove-btn" data-index="${index}">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                `;
+                
+                contactListEl.appendChild(contactItem);
             });
 
-            async function triggerVolumeSOS() {
-                if(emergencyContacts.length === 0) return;
-                
-                if(!navigator.geolocation) return;
-
-                navigator.geolocation.getCurrentPosition(async (pos) => {
-                    const lat = pos.coords.latitude;
-                    const lng = pos.coords.longitude;
-
-                    try {
-                        await fetch('/api/sos/volume', {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({userId, lat, lng})
-                        });
-                        
-                        showNotification('Volume SOS triggered!', 'warning');
-                    } catch(error) {
-                        console.log('Volume SOS failed');
-                    }
+            // Add event listeners to remove buttons
+            document.querySelectorAll('.remove-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(e.currentTarget.getAttribute('data-index'));
+                    emergencyContacts.splice(index, 1);
+                    saveContacts();
+                    showNotification('Contact removed successfully', 'success');
                 });
+            });
+        }
+
+        async function saveContacts(){
+            localStorage.setItem('emergencyContacts', JSON.stringify(emergencyContacts));
+            renderContacts();
+            
+            // Update server
+            try {
+                await fetch('/api/contacts', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({userId, contacts: emergencyContacts})
+                });
+            } catch(error) {
+                console.log('Failed to sync contacts with server');
+            }
+        }
+
+        // Add contact functionality
+        document.getElementById('addContactBtn').addEventListener('click', addContact);
+        document.getElementById('addContactMainBtn').addEventListener('click', () => {
+            document.getElementById('newContact').focus();
+        });
+
+        document.getElementById('newContact').addEventListener('keypress', (e) => {
+            if(e.key === 'Enter') {
+                addContact();
+            }
+        });
+
+        function addContact() {
+            const number = document.getElementById('newContact').value.trim();
+            
+            // Basic phone validation
+            const phoneRegex = /^(\+91[\-\s]?)?[0]?(91)?[6789]\d{9}$/;
+            
+            if(!number) {
+                showNotification('Please enter a phone number', 'error');
+                return;
+            }
+            
+            if(!phoneRegex.test(number)) {
+                showNotification('Please enter a valid Indian phone number', 'error');
+                return;
+            }
+            
+            if(emergencyContacts.includes(number)) {
+                showNotification('This number is already in your emergency contacts', 'error');
+                return;
+            }
+            
+            if(emergencyContacts.length >= 5) {
+                showNotification('Maximum 5 emergency contacts allowed', 'error');
+                return;
             }
 
-            // Initialize the application
-            initializeMap();
+            emergencyContacts.push(number);
+            document.getElementById('newContact').value = '';
+            saveContacts();
+            
+            // Show success message
+            showNotification('Contact added successfully!', 'success');
+        }
+
+        // Load initial contacts
+        await loadContactsFromServer();
+        renderContacts();
+
+        // ===== SOS FUNCTIONALITY WITH REAL SMS =====
+        const sosBtn = document.getElementById('sosBtn');
+        const testSOSBtn = document.getElementById('testSOSBtn');
+
+        sosBtn.addEventListener('click', triggerSOS);
+        testSOSBtn.addEventListener('click', testSMS);
+
+        async function triggerSOS() {
+            if(emergencyContacts.length === 0) {
+                showNotification('Please add emergency contacts first!', 'error');
+                document.getElementById('newContact').focus();
+                return;
+            }
+            
+            // Button animation
+            sosBtn.style.transform = 'scale(1.1)';
+            sosBtn.style.boxShadow = '0 0 40px rgba(255, 59, 108, 0.8)';
+            sosBtn.disabled = true;
+            sosBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> SENDING...';
+            
+            if(!navigator.geolocation) {
+                showNotification('Geolocation not supported by your browser', 'error');
+                resetSOSButton();
+                return;
+            }
+            
+            // Get current location
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                const userId = localStorage.getItem('userId');
+                
+                try {
+                    const response = await fetch('/api/sos', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            userId, 
+                            lat, 
+                            lng, 
+                            triggeredBy: 'button'
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if(data.success) {
+                        showNotification(`🚨 EMERGENCY ALERT SENT! ${data.details.contactsNotified} contacts notified via SMS.`, 'success');
+                        
+                        // Emergency visual effects
+                        document.body.style.background = 'linear-gradient(135deg, #ff3b6c 0%, #5e17eb 100%)';
+                        document.body.style.color = 'white';
+                        
+                        setTimeout(() => {
+                            document.body.style.background = 'linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%)';
+                            document.body.style.color = 'var(--dark)';
+                        }, 3000);
+                        
+                    } else {
+                        showNotification('Failed: ' + data.message, 'error');
+                    }
+                } catch(error) {
+                    showNotification('Network error. Please try again.', 'error');
+                }
+                
+                resetSOSButton();
+                
+            }, (error) => {
+                showNotification('Failed to get location. Please enable location services.', 'error');
+                resetSOSButton();
+            });
+        }
+
+        async function testSMS() {
+            showNotification('📱 Testing SMS service...', 'warning');
+            
+            try {
+                const response = await fetch('/api/test-sms');
+                const data = await response.json();
+                
+                if(data.success) {
+                    showNotification('✅ SMS Service Working! Test message sent.', 'success');
+                } else {
+                    showNotification('❌ SMS Test Failed: ' + data.error, 'error');
+                }
+            } catch(error) {
+                showNotification('❌ SMS Test Failed: Network error', 'error');
+            }
+        }
+
+        function resetSOSButton() {
+            setTimeout(() => {
+                sosBtn.style.transform = 'scale(1)';
+                sosBtn.disabled = false;
+                sosBtn.innerHTML = 'SOS';
+            }, 1000);
+        }
+
+        // ===== VOLUME BUTTON SOS =====
+        const volumeStatus = document.getElementById('volumeStatus');
+        const volumeStatusText = document.getElementById('volumeStatusText');
+        const toggleVolumeBtn = document.getElementById('toggleVolumeBtn');
+        
+        let volumePressCount = 0;
+        let lastVolumePress = 0;
+        let volumeSOSEnabled = true;
+        
+        toggleVolumeBtn.addEventListener('click', function() {
+            volumeSOSEnabled = !volumeSOSEnabled;
+            updateVolumeStatus();
         });
-    </script>
+        
+        function updateVolumeStatus() {
+            if(volumeSOSEnabled) {
+                volumeStatus.className = 'status-indicator';
+                volumeStatusText.textContent = 'Monitoring...';
+                toggleVolumeBtn.innerHTML = '<i class="fas fa-power-off"></i> Disable Volume SOS';
+            } else {
+                volumeStatus.className = 'status-indicator inactive';
+                volumeStatusText.textContent = 'Disabled';
+                toggleVolumeBtn.innerHTML = '<i class="fas fa-power-off"></i> Enable Volume SOS';
+            }
+        }
+        
+        document.addEventListener('keydown', function(e) {
+            if(!volumeSOSEnabled) return;
+            
+            if(e.code === 'VolumeUp' || e.code === 'VolumeDown') {
+                const now = Date.now();
+                
+                if(now - lastVolumePress > 2000) {
+                    volumePressCount = 0;
+                }
+                
+                volumePressCount++;
+                lastVolumePress = now;
+                
+                if(volumePressCount >= 3) {
+                    volumePressCount = 0;
+                    showNotification('Volume SOS Triggered!', 'warning');
+                    triggerVolumeSOS();
+                }
+            }
+        });
+
+        async function triggerVolumeSOS() {
+            if(emergencyContacts.length === 0) return;
+            
+            if(!navigator.geolocation) return;
+
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                const userId = localStorage.getItem('userId');
+
+                try {
+                    const response = await fetch('/api/sos/volume', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({userId, lat, lng})
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if(data.success) {
+                        showNotification(`🔊 Volume SOS sent to ${data.details.contactsNotified} contacts`, 'success');
+                    } else {
+                        showNotification('Volume SOS failed', 'error');
+                    }
+                } catch(error) {
+                    console.log('Volume SOS network error');
+                }
+            });
+        }
+
+        // ===== VOICE COMMAND SOS =====
+        const voiceStatus = document.getElementById('voiceStatus');
+        const voiceStatusText = document.getElementById('voiceStatusText');
+        const toggleVoiceBtn = document.getElementById('toggleVoiceBtn');
+        
+        let voiceRecognition = null;
+        let voiceSOSEnabled = false;
+        
+        toggleVoiceBtn.addEventListener('click', function() {
+            if(!voiceSOSEnabled) {
+                enableVoiceSOS();
+            } else {
+                disableVoiceSOS();
+            }
+        });
+        
+        function enableVoiceSOS() {
+            if('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                voiceRecognition = new SpeechRecognition();
+                
+                voiceRecognition.continuous = true;
+                voiceRecognition.interimResults = false;
+                voiceRecognition.lang = 'en-US';
+                
+                voiceRecognition.onresult = function(event) {
+                    const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase();
+                    
+                    if(transcript.includes('help me') || transcript.includes('emergency') || transcript.includes('sos')) {
+                        showNotification('Voice SOS Triggered!', 'warning');
+                        triggerSOS();
+                    }
+                };
+                
+                voiceRecognition.onerror = function(event) {
+                    console.log('Voice recognition error:', event.error);
+                };
+                
+                voiceRecognition.start();
+                voiceSOSEnabled = true;
+                voiceStatus.className = 'status-indicator';
+                voiceStatusText.textContent = 'Listening...';
+                toggleVoiceBtn.innerHTML = '<i class="fas fa-microphone-slash"></i> Disable Voice';
+                showNotification('Voice SOS enabled. Say "Help Me" for emergency.', 'success');
+                
+            } else {
+                showNotification('Voice recognition not supported in your browser', 'error');
+            }
+        }
+        
+        function disableVoiceSOS() {
+            if(voiceRecognition) {
+                voiceRecognition.stop();
+            }
+            voiceSOSEnabled = false;
+            voiceStatus.className = 'status-indicator inactive';
+            voiceStatusText.textContent = 'Disabled';
+            toggleVoiceBtn.innerHTML = '<i class="fas fa-microphone"></i> Enable Voice';
+        }
+
+        // ===== SHAKE DETECTION SOS =====
+        const shakeStatus = document.getElementById('shakeStatus');
+        const shakeStatusText = document.getElementById('shakeStatusText');
+        const toggleShakeBtn = document.getElementById('toggleShakeBtn');
+        
+        let shakeSOSEnabled = false;
+        let lastShake = 0;
+        
+        toggleShakeBtn.addEventListener('click', function() {
+            shakeSOSEnabled = !shakeSOSEnabled;
+            updateShakeStatus();
+        });
+        
+        function updateShakeStatus() {
+            if(shakeSOSEnabled) {
+                shakeStatus.className = 'status-indicator';
+                shakeStatusText.textContent = 'Monitoring...';
+                toggleShakeBtn.innerHTML = '<i class="fas fa-power-off"></i> Disable Shake';
+            } else {
+                shakeStatus.className = 'status-indicator inactive';
+                shakeStatusText.textContent = 'Disabled';
+                toggleShakeBtn.innerHTML = '<i class="fas fa-power-off"></i> Enable Shake';
+            }
+        }
+        
+        if(window.DeviceMotionEvent) {
+            window.addEventListener('devicemotion', function(event) {
+                if(!shakeSOSEnabled) return;
+                
+                const acceleration = event.accelerationIncludingGravity;
+                const shake = Math.abs(acceleration.x) + Math.abs(acceleration.y) + Math.abs(acceleration.z);
+                
+                if(shake > 30 && Date.now() - lastShake > 2000) {
+                    lastShake = Date.now();
+                    showNotification('Shake SOS Triggered!', 'warning');
+                    triggerSOS();
+                }
+            });
+        }
+
+        // ===== QUICK ACTIONS =====
+        document.getElementById('shareLocationBtn').addEventListener('click', shareLiveLocation);
+        document.getElementById('safePlacesBtn').addEventListener('click', () => {
+            document.getElementById('map').scrollIntoView({ behavior: 'smooth' });
+        });
+        document.getElementById('fakeCallBtn').addEventListener('click', triggerFakeCall);
+        document.getElementById('soundAlarmBtn').addEventListener('click', triggerAlarm);
+
+        // Share Live Location
+        async function shareLiveLocation() {
+            if(!navigator.geolocation) {
+                showNotification('Geolocation not supported', 'error');
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                
+                try {
+                    await fetch('/api/location', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({userId, lat, lng})
+                    });
+                    
+                    showNotification('Location shared with emergency contacts', 'success');
+                } catch(error) {
+                    showNotification('Failed to share location', 'error');
+                }
+            });
+        }
+
+        // Fake Call Feature
+        function triggerFakeCall() {
+            // Create fake call overlay
+        <div id="fakeCallOverlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); z-index:10000; color:white; display:flex; flex-direction:column; justify-content:center; align-items:center; font-family: Arial, sans-serif;">
+                    <div style="text-align:center;">
+                        <div style="font-size: 48px; margin-bottom: 20px;">📞</div>
+                        <h2 style="margin-bottom: 5px;">Incoming Call</h2>
+                        <h3 style="margin-bottom: 5px; font-size: 24px;">Mom</h3>
+                        <p style="margin-bottom: 30px; opacity: 0.8;">+91 ●●●●● ●●●●●</p>
+                        <div style="display: flex; gap: 20px;">
+                            <button onclick="acceptFakeCall()" style="background:#4CAF50; color:white; width: 60px; height: 60px; border:none; border-radius:50%; font-size: 24px; cursor:pointer;">
+                                📞
+                            </button>
+                            <button onclick="rejectFakeCall()" style="background:#f44336; color:white; width: 60px; height: 60px; border:none; border-radius:50%; font-size: 24px; cursor:pointer;">
+                                📵
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', fakeCallHTML);
+            
+            // Add global functions for the buttons
+            window.acceptFakeCall = function() {
+                document.getElementById('fakeCallOverlay').innerHTML = `
+                    <div style="text-align:center;">
+                        <div style="font-size: 48px; margin-bottom: 20px;">📞</div>
+                        <h2>Call Connected</h2>
+                        <p style="margin: 20px 0;">Pretend conversation in progress...</p>
+                        <button onclick="endFakeCall()" style="background:#f44336; color:white; padding: 15px 30px; border:none; border-radius:25px; cursor:pointer; font-size: 16px;">
+                            End Call
+                        </button>
+                    </div>
+                `;
+            };
+            
+            window.rejectFakeCall = function() {
+                document.getElementById('fakeCallOverlay').remove();
+                showNotification('Call rejected', 'info');
+            };
+            
+            window.endFakeCall = function() {
+                document.getElementById('fakeCallOverlay').remove();
+                showNotification('Call ended', 'info');
+            };
+        }
+
+        // Sound Alarm
+        function triggerAlarm() {
+            showNotification('Loud alarm activated!', 'warning');
+            
+            // Create alarm sound using Web Audio API
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = 800;
+                oscillator.type = 'sine';
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 2);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 2);
+                
+            } catch(error) {
+                console.log('Audio not supported');
+            }
+        }
+
+        // ===== NEARBY SAFE PLACES MAP =====
+        let map;
+        
+        function initializeMap() {
+            map = L.map('map').setView([20.5937, 78.9629], 5);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors',
+                maxZoom: 18
+            }).addTo(map);
+
+            // Get user location and show nearby places
+            if(navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(showUserLocation, showDefaultMap);
+            } else {
+                showDefaultMap();
+            }
+        }
+
+        function showUserLocation(position) {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            
+            map.setView([lat, lng], 14);
+            
+            // Add user marker
+            const userMarker = L.marker([lat, lng]).addTo(map);
+            userMarker.bindPopup(`
+                <div style="text-align: center;">
+                    <h4>Your Location</h4>
+                    <p>You are here</p>
+                </div>
+            `).openPopup();
+            
+            // Add circle around user location
+            L.circle([lat, lng], {
+                color: '#ff3b6c',
+                fillColor: '#ff3b6c',
+                fillOpacity: 0.1,
+                radius: 1000
+            }).addTo(map);
+            
+            // Load nearby safe places
+            loadNearbyPlaces(lat, lng);
+        }
+
+        function showDefaultMap() {
+            // Default to India view if location not available
+            map.setView([20.5937, 78.9629], 5);
+        }
+
+        async function loadNearbyPlaces(lat, lng) {
+            try {
+                const response = await fetch(`/api/nearby-places?lat=${lat}&lng=${lng}&radius=5000`);
+                const data = await response.json();
+                
+                if(data.success && data.places) {
+                    data.places.forEach(place => {
+                        const markerColor = place.type === 'police' ? '#dc3545' : '#28a745';
+                        const icon = L.divIcon({
+                            className: 'custom-marker',
+                            html: `<div style="background: ${markerColor}; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>`,
+                            iconSize: [20, 20],
+                            iconAnchor: [10, 10]
+                        });
+                        
+                        const marker = L.marker([place.lat, place.lng], {icon: icon}).addTo(map);
+                        
+                        const popupContent = `
+                            <div style="min-width: 200px;">
+                                <h4 style="margin: 0 0 10px 0; color: ${markerColor};">
+                                    <i class="fas fa-${place.type === 'police' ? 'shield-alt' : 'hospital'}"></i>
+                                    ${place.name}
+                                </h4>
+                                <p style="margin: 5px 0; font-size: 12px; color: #666;">${place.address}</p>
+                                <p style="margin: 5px 0; font-size: 12px;"><strong>Distance:</strong> ${place.distance.toFixed(2)} km</p>
+                                <div style="margin-top: 10px;">
+                                    <button onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}', '_blank')" 
+                                            style="background: #ff3b6c; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 12px; margin-right: 5px;">
+                                        <i class="fas fa-directions"></i> Directions
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                        
+                        marker.bindPopup(popupContent);
+                    });
+                }
+            } catch(error) {
+                console.log('Failed to load nearby places:', error);
+            }
+        }
+
+        // ===== NOTIFICATION SYSTEM =====
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'bell'}"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => {
+                    if(notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, 4000);
+        }
+
+        // ===== INITIALIZE =====
+        updateVolumeStatus();
+        updateShakeStatus();
+        initializeMap();
+    });
+</script>
+                
 </body>
 </html>
