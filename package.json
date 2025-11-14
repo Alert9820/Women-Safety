@@ -1,7 +1,7 @@
 {
   "name": "guardian-angel",
   "version": "1.0.0",
-  "description": "Women Safety App - Backend server with MongoDB and Fast2SMS",
+  "description": "Women Safety App - Backend server with MongoDB and SMSMobile API",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -10,13 +10,12 @@
   "author": "Sunny Chaurasiya",
   "license": "MIT",
   "dependencies": {
-    "unirest": "^0.6.0",
-    "axios": "^1.5.0",
-    "body-parser": "^1.20.2",
-    "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
+    "node-fetch": "^2.6.7",
     "express": "^4.18.2",
-    "mongoose": "^7.5.0"
+    "mongoose": "^7.5.0",
+    "cors": "^2.8.5",
+    "body-parser": "^1.20.2",
+    "dotenv": "^16.3.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.3"
