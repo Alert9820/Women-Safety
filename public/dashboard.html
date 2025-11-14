@@ -489,6 +489,23 @@
             from { transform: translateX(0); opacity: 1; }
             to { transform: translateX(100%); opacity: 0; }
         }
+
+        /* Fake Call Overlay */
+        .fake-call-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            z-index: 10000;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-family: Arial, sans-serif;
+        }
         
         /* Responsive */
         @media (max-width: 1024px) {
@@ -667,7 +684,7 @@
                         <div class="card-icon">
                             <i class="fas fa-users"></i>
                         </div>
-                        </div>
+                    </div>
                     
                     <div class="contact-list" id="contactList">
                         <!-- Contacts will be loaded here -->
@@ -711,31 +728,152 @@
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
+        // ===== SESSION MANAGEMENT =====
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if user is logged in
+            const userId = localStorage.getItem('userId');
+            const userName = localStorage.getItem('userName');
+            const userPhone = localStorage.getItem('userPhone');
+            
+            if (!userId) {
+                alert('Please login first');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // Update user info in sidebar
+            document.getElementById('userName').textContent = userName || 'User';
+            document.getElementById('userPhone').textContent = userPhone || '+91 XXXXX XXXXX';
+            document.getElementById('userAvatar').textContent = userName ? userName.charAt(0).toUpperCase() : 'U';
+
+            // Initialize all features
+            initializeDashboard();
+        });
+
         // ===== SIDEBAR NAVIGATION =====
         function setActiveNav(element) {
-            // Remove active class from all nav items
             document.querySelectorAll('.nav-item').forEach(item => {
                 item.classList.remove('active');
             });
-            
-            // Add active class to clicked item
             element.classList.add('active');
-            
-            // If it's not dashboard, navigate to the page
-            if (!element.querySelector('span').textContent.includes('Dashboard')) {
-                const pageName = element.getAttribute('href');
-                if (pageName && pageName !== '#') {
-                    window.location.href = pageName;
-                }
-            }
         }
 
-        // ===== TWILIO SMS INTEGRATION =====
+        // ===== LOGOUT FUNCTION =====
+        document.getElementById('logoutBtn').addEventListener('click', function() {
+            localStorage.clear();
+            showNotification('Logged out successfully', 'success');
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 1000);
+        });
+
+        // ===== NOTIFICATION SYSTEM =====
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'bell'}"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, 4000);
+        }
+
+        // ===== EMERGENCY CONTACTS MANAGEMENT =====
+        let emergencyContacts = JSON.parse(localStorage.getItem('emergencyContacts')) || [];
+
+        function loadContacts() {
+            const contactListEl = document.getElementById('contactList');
+            
+            if (emergencyContacts.length === 0) {
+                contactListEl.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: var(--gray);">
+                        <i class="fas fa-users" style="font-size: 48px; margin-bottom: 10px;"></i>
+                        <p>No emergency contacts added</p>
+                    </div>
+                `;
+                return;
+            }
+
+            contactListEl.innerHTML = emergencyContacts.map((contact, index) => `
+                <div class="contact-item">
+                    <div class="contact-info">
+                        <div class="contact-avatar">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="contact-details">
+                            <h4>Contact ${index + 1}</h4>
+                            <p>${contact}</p>
+                        </div>
+                    </div>
+                    <button class="remove-btn" onclick="removeContact(${index})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function removeContact(index) {
+            emergencyContacts.splice(index, 1);
+            localStorage.setItem('emergencyContacts', JSON.stringify(emergencyContacts));
+            loadContacts();
+            showNotification('Contact removed successfully', 'success');
+        }
+
+        document.getElementById('addContactBtn').addEventListener('click', addContact);
+        document.getElementById('addContactMainBtn').addEventListener('click', function() {
+            document.getElementById('newContact').focus();
+        });
+
+        function addContact() {
+            const number = document.getElementById('newContact').value.trim();
+            const phoneRegex = /^(\+91[\-\s]?)?[0]?(91)?[6789]\d{9}$/;
+            
+            if (!number) {
+                showNotification('Please enter a phone number', 'error');
+                return;
+            }
+            
+            if (!phoneRegex.test(number)) {
+                showNotification('Please enter a valid Indian phone number', 'error');
+                return;
+            }
+            
+            if (emergencyContacts.includes(number)) {
+                showNotification('This number is already in your emergency contacts', 'error');
+                return;
+            }
+            
+            if (emergencyContacts.length >= 5) {
+                showNotification('Maximum 5 emergency contacts allowed', 'error');
+                return;
+            }
+
+            emergencyContacts.push(number);
+            localStorage.setItem('emergencyContacts', JSON.stringify(emergencyContacts));
+            document.getElementById('newContact').value = '';
+            loadContacts();
+            showNotification('Contact added successfully!', 'success');
+        }
+
+        // ===== SOS FUNCTIONALITY WITH TWILIO =====
+        document.getElementById('sosBtn').addEventListener('click', triggerSOS);
+
         async function triggerSOS() {
             const userId = localStorage.getItem('userId');
-            const emergencyContacts = JSON.parse(localStorage.getItem('emergencyContacts')) || [];
             
-            if(emergencyContacts.length === 0) {
+            if (emergencyContacts.length === 0) {
                 showNotification('Please add emergency contacts first!', 'error');
                 document.getElementById('newContact').focus();
                 return;
@@ -748,7 +886,7 @@
             sosBtn.disabled = true;
             sosBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> SENDING...';
             
-            if(!navigator.geolocation) {
+            if (!navigator.geolocation) {
                 showNotification('Geolocation not supported by your browser', 'error');
                 resetSOSButton();
                 return;
@@ -767,13 +905,13 @@
                             userId, 
                             lat, 
                             lng, 
-                            triggeredBy: 'dashboard'
+                            triggeredBy: 'button'
                         })
                     });
                     
                     const data = await response.json();
                     
-                    if(data.success) {
+                    if (data.success) {
                         showNotification(`🚨 EMERGENCY ALERT SENT! ${data.details.contactsNotified} contacts notified via SMS.`, 'success');
                         
                         // Emergency visual effects
@@ -788,7 +926,7 @@
                     } else {
                         showNotification('Failed: ' + data.message, 'error');
                     }
-                } catch(error) {
+                } catch (error) {
                     showNotification('Network error. Please try again.', 'error');
                 }
                 
@@ -808,17 +946,68 @@
                 sosBtn.innerHTML = 'SOS';
             }, 1000);
         }
+        / ===== VOLUME BUTTON SOS (BACKGROUND) =====
+        let volumePressCount = 0;
+        let lastVolumePress = 0;
 
-        // ===== FAKE CALL FUNCTION =====
-        function triggerFakeCall() {
-            // Check if overlay already exists
-            if (document.getElementById('fakeCallOverlay')) {
-                return;
+        // Listen for volume button presses
+        document.addEventListener('keydown', function(e) {
+            if (e.code === 'VolumeUp' || e.code === 'VolumeDown') {
+                const now = Date.now();
+                
+                if (now - lastVolumePress > 2000) {
+                    volumePressCount = 0;
+                }
+                
+                volumePressCount++;
+                lastVolumePress = now;
+                
+                if (volumePressCount >= 3) {
+                    volumePressCount = 0;
+                    showNotification('Volume SOS Triggered!', 'warning');
+                    triggerVolumeSOS();
+                }
             }
+        });
+
+        async function triggerVolumeSOS() {
+            const userId = localStorage.getItem('userId');
+            if (emergencyContacts.length === 0) return;
+
+            if (!navigator.geolocation) return;
+
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+
+                try {
+                    const response = await fetch('/api/sos/volume', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({userId, lat, lng})
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showNotification(`🔊 Volume SOS sent to ${data.details.contactsNotified} contacts`, 'success');
+                    } else {
+                        showNotification('Volume SOS failed', 'error');
+                    }
+                } catch (error) {
+                    console.log('Volume SOS network error');
+                }
+            });
+        }
+
+        // ===== FAKE CALL FEATURE =====
+        document.getElementById('fakeCallBtn').addEventListener('click', triggerFakeCall);
+
+        function triggerFakeCall() {
+            if (document.getElementById('fakeCallOverlay')) return;
             
-            // Create fake call overlay
             const fakeCallHTML = `
-            <div id="fakeCallOverlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); z-index:10000; color:white; display:flex; flex-direction:column; justify-content:center; align-items:center; font-family: Arial, sans-serif;">
+            <div id="fakeCallOverlay" class="fake-call-overlay">
                 <div style="text-align:center;">
                     <div style="font-size: 48px; margin-bottom: 20px;">📞</div>
                     <h2 style="margin-bottom: 5px;">Incoming Call</h2>
@@ -838,11 +1027,7 @@
             
             document.body.insertAdjacentHTML('beforeend', fakeCallHTML);
             
-            // Add event listeners
-            document.getElementById('acceptFakeCallBtn').addEventListener('click', acceptFakeCall);
-            document.getElementById('rejectFakeCallBtn').addEventListener('click', rejectFakeCall);
-            
-            function acceptFakeCall() {
+            document.getElementById('acceptFakeCallBtn').addEventListener('click', function() {
                 document.getElementById('fakeCallOverlay').innerHTML = `
                     <div style="text-align:center;">
                         <div style="font-size: 48px; margin-bottom: 20px;">📞</div>
@@ -853,78 +1038,183 @@
                         </button>
                     </div>
                 `;
-                document.getElementById('endFakeCallBtn').addEventListener('click', endFakeCall);
-            }
+                document.getElementById('endFakeCallBtn').addEventListener('click', function() {
+                    document.getElementById('fakeCallOverlay').remove();
+                    showNotification('Call ended', 'info');
+                });
+            });
             
-            function rejectFakeCall() {
+            document.getElementById('rejectFakeCallBtn').addEventListener('click', function() {
                 document.getElementById('fakeCallOverlay').remove();
                 showNotification('Call rejected', 'info');
-            }
-            
-            function endFakeCall() {
-                document.getElementById('fakeCallOverlay').remove();
-                showNotification('Call ended', 'info');
-            }
-        }
-                            / ===== NOTIFICATION SYSTEM =====
-        function showNotification(message, type = 'success') {
-            const notification = document.createElement('div');
-            notification.className = `notification ${type}`;
-            notification.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'bell'}"></i>
-                    <span>${message}</span>
-                </div>
-            `;
-            
-            document.body.appendChild(notification);
-            
-            setTimeout(() => {
-                notification.style.animation = 'slideOut 0.3s ease';
-                setTimeout(() => {
-                    if(notification.parentNode) {
-                        notification.parentNode.removeChild(notification);
-                    }
-                }, 300);
-            }, 4000);
+            });
         }
 
-        // ===== INITIALIZE DASHBOARD =====
-        document.addEventListener('DOMContentLoaded', async () => {
-            // Session management
-            const userId = localStorage.getItem('userId');
-            const userName = localStorage.getItem('userName');
-            const userPhone = localStorage.getItem('userPhone');
+        // ===== NEARBY SAFE PLACES MAP =====
+        let map;
+
+        function initializeMap() {
+            map = L.map('map').setView([20.5937, 78.9629], 5);
             
-            if(!userId) {
-                alert('Login session expired');
-                window.location.href = 'index.html';
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors',
+                maxZoom: 18
+            }).addTo(map);
+
+            // Get user location and show nearby places
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(showUserLocation, showDefaultMap);
+            } else {
+                showDefaultMap();
+            }
+        }
+
+        function showUserLocation(position) {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            
+            map.setView([lat, lng], 14);
+            
+            // Add user marker
+            const userMarker = L.marker([lat, lng]).addTo(map);
+            userMarker.bindPopup(`
+                <div style="text-align: center;">
+                    <h4>Your Location</h4>
+                    <p>You are here</p>
+                </div>
+            `).openPopup();
+            
+            // Add circle around user location
+            L.circle([lat, lng], {
+                color: '#ff3b6c',
+                fillColor: '#ff3b6c',
+                fillOpacity: 0.1,
+                radius: 1000
+            }).addTo(map);
+            
+            // Load nearby safe places
+            loadNearbyPlaces(lat, lng);
+        }
+
+        function showDefaultMap() {
+            map.setView([20.5937, 78.9629], 5);
+        }
+
+        async function loadNearbyPlaces(lat, lng) {
+            try {
+                const response = await fetch(`/api/nearby-places?lat=${lat}&lng=${lng}&radius=5000`);
+                const data = await response.json();
+                
+                if (data.success && data.places) {
+                    data.places.forEach(place => {
+                        const markerColor = place.type === 'police' ? '#dc3545' : '#28a745';
+                        const icon = L.divIcon({
+                            className: 'custom-marker',
+                            html: `<div style="background: ${markerColor}; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>`,
+                            iconSize: [20, 20],
+                            iconAnchor: [10, 10]
+                        });
+                        
+                        const marker = L.marker([place.lat, place.lng], {icon: icon}).addTo(map);
+                        
+                        const popupContent = `
+                            <div style="min-width: 200px;">
+                                <h4 style="margin: 0 0 10px 0; color: ${markerColor};">
+                                    <i class="fas fa-${place.type === 'police' ? 'shield-alt' : 'hospital'}"></i>
+                                    ${place.name}
+                                </h4>
+                                <p style="margin: 5px 0; font-size: 12px; color: #666;">${place.address}</p>
+                                <p style="margin: 5px 0; font-size: 12px;"><strong>Distance:</strong> ${place.distance.toFixed(2)} km</p>
+                                <div style="margin-top: 10px;">
+                                    <button onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}', '_blank')" 
+                                            style="background: #ff3b6c; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 12px; margin-right: 5px;">
+                                        <i class="fas fa-directions"></i> Directions
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                        
+                        marker.bindPopup(popupContent);
+                    });
+                }
+            } catch (error) {
+                console.log('Failed to load nearby places:', error);
+            }
+        }
+
+        // ===== QUICK ACTIONS =====
+        document.getElementById('shareLocationBtn').addEventListener('click', shareLiveLocation);
+        document.getElementById('safePlacesBtn').addEventListener('click', () => {
+            document.getElementById('map').scrollIntoView({ behavior: 'smooth' });
+        });
+        document.getElementById('soundAlarmBtn').addEventListener('click', triggerAlarm);
+
+        async function shareLiveLocation() {
+            if (!navigator.geolocation) {
+                showNotification('Geolocation not supported', 'error');
                 return;
             }
 
-            // Update user info
-            document.getElementById('userName').textContent = userName || 'User';
-            document.getElementById('userPhone').textContent = userPhone || '+91 XXXXX XXXXX';
-            document.getElementById('userAvatar').textContent = userName ? userName.charAt(0).toUpperCase() : 'U';
-
-            // Event Listeners
-            document.getElementById('sosBtn').addEventListener('click', triggerSOS);
-            document.getElementById('fakeCallBtn').addEventListener('click', triggerFakeCall);
-            document.getElementById('logoutBtn').addEventListener('click', logout);
-
-            // Initialize other dashboard functionality
-            initializeMap();
-            loadContacts();
-        });
-
-        function logout() {
-            localStorage.clear();
-            window.location.href = 'index.html';
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                const userId = localStorage.getItem('userId');
+                
+                try {
+                    await fetch('/api/location', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({userId, lat, lng})
+                    });
+                    
+                    showNotification('Location shared with emergency contacts', 'success');
+                } catch (error) {
+                    showNotification('Failed to share location', 'error');
+                }
+            });
         }
 
-        // Add your existing contacts and map initialization functions here
-        // (They will work as before with the same functionality)
-    </script>
+        function triggerAlarm() {
+            showNotification('Loud alarm activated!', 'warning');
+            
+            // Create alarm sound using Web Audio API
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
                 
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = 800;
+                oscillator.type = 'sine';
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 2);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 2);
+                
+            } catch (error) {
+                console.log('Audio not supported');
+            }
+        }
+
+        // ===== INITIALIZE DASHBOARD =====
+        function initializeDashboard() {
+            loadContacts();
+            initializeMap();
+            
+            // Add keyboard shortcut for SOS (Spacebar)
+            document.addEventListener('keydown', function(event) {
+                if (event.code === 'Space' && event.target.tagName !== 'INPUT') {
+                    event.preventDefault();
+                    triggerSOS();
+                }
+            });
+
+            showNotification('Dashboard loaded successfully!', 'success');
+        }
+    </script>
 </body>
 </html>
