@@ -1243,6 +1243,68 @@
             };
         }
 */
+        // Fake Call Feature
+function triggerFakeCall() {
+    // Check if overlay already exists
+    if (document.getElementById('fakeCallOverlay')) {
+        return;
+    }
+    
+    // Create fake call overlay
+    const fakeCallHTML = `
+    <div id="fakeCallOverlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); z-index:10000; color:white; display:flex; flex-direction:column; justify-content:center; align-items:center; font-family: Arial, sans-serif;">
+        <div style="text-align:center;">
+            <div style="font-size: 48px; margin-bottom: 20px;">📞</div>
+            <h2 style="margin-bottom: 5px;">Incoming Call</h2>
+            <h3 style="margin-bottom: 5px; font-size: 24px;">Mom</h3>
+            <p style="margin-bottom: 30px; opacity: 0.8;">+91 ●●●●● ●●●●●</p>
+            <div style="display: flex; gap: 20px;">
+                <button id="acceptFakeCallBtn" style="background:#4CAF50; color:white; width: 60px; height: 60px; border:none; border-radius:50%; font-size: 24px; cursor:pointer;">
+                    📞
+                </button>
+                <button id="rejectFakeCallBtn" style="background:#f44336; color:white; width: 60px; height: 60px; border:none; border-radius:50%; font-size: 24px; cursor:pointer;">
+                    📵
+                </button>
+            </div>
+        </div>
+    </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', fakeCallHTML);
+    
+    // Add event listeners
+    document.getElementById('acceptFakeCallBtn').addEventListener('click', acceptFakeCall);
+    document.getElementById('rejectFakeCallBtn').addEventListener('click', rejectFakeCall);
+    
+    function acceptFakeCall() {
+        document.getElementById('fakeCallOverlay').innerHTML = `
+            <div style="text-align:center;">
+                <div style="font-size: 48px; margin-bottom: 20px;">📞</div>
+                <h2>Call Connected</h2>
+                <p style="margin: 20px 0;">Pretend conversation in progress...</p>
+                <button id="endFakeCallBtn" style="background:#f44336; color:white; padding: 15px 30px; border:none; border-radius:25px; cursor:pointer; font-size: 16px;">
+                    End Call
+                </button>
+            </div>
+        `;
+        document.getElementById('endFakeCallBtn').addEventListener('click', endFakeCall);
+    }
+    
+    function rejectFakeCall() {
+        document.getElementById('fakeCallOverlay').remove();
+        // showNotification('Call rejected', 'info');
+        console.log('Call rejected');
+    }
+    
+    function endFakeCall() {
+        document.getElementById('fakeCallOverlay').remove();
+        // showNotification('Call ended', 'info');
+        console.log('Call ended');
+    }
+}
+
+// IMPORTANT: Call this function only when needed, not automatically
+// triggerFakeCall(); // Don't call this automatically
         // Sound Alarm
         function triggerAlarm() {
             showNotification('Loud alarm activated!', 'warning');
