@@ -12,7 +12,7 @@ const app = express();
 // Twilio Configuration
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
-const twilioPhone = process.env.TWILIO_PHONE_NUMBER;
+const twilioPhone = process.env.TWILIO_PHONE_NUMBER || '+12272306455';
 const twilioClient = twilio(accountSid, authToken);
 
 // Middleware
@@ -21,14 +21,14 @@ app.use(bodyParser.json());
 app.use(express.static(path.resolve('public')));
 
 // MongoDB Connection
-mongoose.connect(process.env.MONGO_URI, {
+mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/womenSafety', {
     useNewUrlParser: true,
     useUnifiedTopology: true
 })
 .then(() => console.log('✅ MongoDB connected'))
 .catch(err => console.error('❌ MongoDB connection error:', err));
 
-// User Schema (same as your existing schema)
+// User Schema
 const userSchema = new mongoose.Schema({
     name: String,
     email: { type: String, unique: true },
@@ -64,6 +64,7 @@ async function sendSMS(phoneNumber, message) {
         
         console.log(`📤 Sending SMS via Twilio to ${toNumber}`);
         
+        // Direct Twilio call
         const result = await twilioClient.messages.create({
             body: message,
             from: twilioPhone,
@@ -78,26 +79,20 @@ async function sendSMS(phoneNumber, message) {
         };
         
     } catch (error) {
-        console.error(`❌ Twilio SMS Failed for ${phoneNumber}:`, error.message);
+        console.error(`❌ Twilio SMS Failed for ${phoneNumber}:`, error);
         
-        // Specific error handling
-        let errorMessage = error.message;
-        if (error.code === 21211) {
-            errorMessage = 'Invalid phone number format';
-        } else if (error.code === 21608) {
-            errorMessage = 'Number not verified (trial account restriction)';
-        } else if (error.code === 21408) {
-            errorMessage = 'Permission to send SMS to this number has not been enabled';
-        } else if (error.code === 21610) {
-            errorMessage = 'Message cannot be sent to this number';
-        }
+        // Detailed error logging
+        console.log('Error Details:', {
+            code: error.code,
+            message: error.message,
+            moreInfo: error.more_info
+        });
         
-        throw new Error(errorMessage);
+        throw error;
     }
 }
 
 // ===== AUTHENTICATION ROUTES =====
-// (YEH SAB SAME RAHEGA - NO CHANGES)
 
 // Signup Route
 app.post('/api/signup', async (req, res) => {
@@ -163,7 +158,6 @@ app.post('/api/login', async (req, res) => {
 });
 
 // ===== EMERGENCY CONTACTS ROUTES =====
-// (YEH BHI SAME RAHEGA)
 
 // Get Emergency Contacts
 app.get('/api/contacts/:userId', async (req, res) => {
@@ -222,6 +216,9 @@ app.post('/api/contacts', async (req, res) => {
 // ===== EMERGENCY SOS ROUTE WITH TWILIO =====
 
 app.post('/api/sos', async (req, res) => {
+    // Set timeout for SOS request
+    req.setTimeout(30000);
+    
     const { userId, lat, lng, triggeredBy = 'button' } = req.body;
     
     console.log('🚨 SOS Triggered:', { userId, lat, lng, triggeredBy });
@@ -247,21 +244,40 @@ app.post('/api/sos', async (req, res) => {
             return res.json({ success: false, message: "No emergency contacts set" });
         }
 
-        // Create Google Maps link
+        // Create Google Maps link with exact location
         const googleMapsLink = `https://maps.google.com/?q=${lat},${lng}`;
-        const timestamp = new Date().toLocaleString();
+        const mapsShortLink = `https://maps.app.goo.gl/?q=${lat},${lng}`;
         
-        // Prepare emergency message
-        const message = `🚨 EMERGENCY ALERT! ${user.name} needs immediate help!\n📍 Location: ${googleMapsLink}\n⏰ Time: ${timestamp}\nPlease check on them immediately!`;
+        const timestamp = new Date().toLocaleString('en-IN', {
+            timeZone: 'Asia/Kolkata',
+            dateStyle: 'medium',
+            timeStyle: 'medium'
+        });
 
-        console.log('📱 Sending SMS via Twilio to:', user.emergencyContacts);
+        // Prepare emergency message with location
+        const message = `🚨 EMERGENCY ALERT! 
 
-        // Send SMS to all emergency contacts using Twilio
+${user.name} needs immediate help!
+
+📍 Location: ${mapsShortLink}
+📌 Exact Coordinates: ${lat.toFixed(6)}, ${lng.toFixed(6)}
+⏰ Time: ${timestamp}
+
+Please check on them immediately and contact authorities if needed.
+
+Sent via Guardian Angel Safety App`;
+
+        console.log('📱 Sending SMS to:', user.emergencyContacts);
+        console.log('📍 Location:', { lat, lng });
+        console.log('📝 Message Length:', message.length);
+
+        // Send SMS to all emergency contacts
         const smsResults = [];
         let successfulSends = 0;
 
         for (const contact of user.emergencyContacts) {
             try {
+                console.log(`📤 Attempting SMS to: ${contact}`);
                 const result = await sendSMS(contact, message);
                 
                 smsResults.push({
@@ -270,6 +286,8 @@ app.post('/api/sos', async (req, res) => {
                     response: result
                 });
                 successfulSends++;
+                
+                console.log(`✅ SMS Success for ${contact}`);
 
             } catch (smsError) {
                 console.error(`❌ SMS Failed for ${contact}:`, smsError.message);
@@ -277,11 +295,12 @@ app.post('/api/sos', async (req, res) => {
                 smsResults.push({
                     contact: contact,
                     success: false,
-                    error: smsError.message
+                    error: smsError.message,
+                    code: smsError.code
                 });
             }
             
-            // Small delay between SMS sends to avoid rate limiting
+            // Small delay between SMS sends
             await new Promise(resolve => setTimeout(resolve, 1000));
         }
 
@@ -307,9 +326,9 @@ app.post('/api/sos', async (req, res) => {
         // Prepare response
         let responseMessage;
         if (successfulSends === user.emergencyContacts.length) {
-            responseMessage = `🚨 EMERGENCY ALERT SENT! All ${successfulSends} contacts notified via SMS.`;
+            responseMessage = `🚨 EMERGENCY ALERT SENT! All ${successfulSends} contacts notified via SMS with your location.`;
         } else if (successfulSends > 0) {
-            responseMessage = `🚨 EMERGENCY ALERT PARTIALLY SENT! ${successfulSends} out of ${user.emergencyContacts.length} contacts notified.`;
+            responseMessage = `🚨 EMERGENCY ALERT PARTIALLY SENT! ${successfulSends} out of ${user.emergencyContacts.length} contacts notified with your location.`;
         } else {
             responseMessage = "❌ Failed to send SMS to any contacts. Please try again.";
         }
@@ -321,24 +340,27 @@ app.post('/api/sos', async (req, res) => {
                 contactsTotal: user.emergencyContacts.length,
                 contactsNotified: successfulSends,
                 location: { lat, lng },
+                googleMapsLink: googleMapsLink,
                 timestamp: timestamp,
                 triggeredBy: triggeredBy
             },
             smsResults: smsResults
         });
 
-    } catch(err){
+    } catch(err) {
         console.error('❌ SOS Processing Error:', err);
         return res.json({ 
             success: false, 
-            message: "Failed to process SOS: " + err.message
+            message: "SMS service timeout. Please try again."
         });
     }
 });
 
-// ===== VOLUME BUTTON SOS ROUTE WITH TWILIO =====
+// ===== VOLUME BUTTON SOS ROUTE =====
 
 app.post('/api/sos/volume', async (req, res) => {
+    req.setTimeout(30000);
+    
     const { userId, lat, lng } = req.body;
     
     console.log('🔊 Volume SOS Triggered:', { userId, lat, lng });
@@ -359,10 +381,26 @@ app.post('/api/sos/volume', async (req, res) => {
 
         // Create Google Maps link
         const googleMapsLink = `https://maps.google.com/?q=${lat},${lng}`;
-        const timestamp = new Date().toLocaleString();
+        const mapsShortLink = `https://maps.app.goo.gl/?q=${lat},${lng}`;
         
-        // Prepare volume SOS specific message
-        const message = `🚨 VOLUME BUTTON EMERGENCY! ${user.name} triggered SOS!\n📍 Location: ${googleMapsLink}\n⏰ Time: ${timestamp}\nPhone might be locked - immediate attention needed!`;
+        const timestamp = new Date().toLocaleString('en-IN', {
+            timeZone: 'Asia/Kolkata',
+            dateStyle: 'medium',
+            timeStyle: 'medium'
+        });
+
+        // Volume SOS specific message
+        const message = `🚨 VOLUME BUTTON EMERGENCY!
+
+${user.name} triggered SOS using volume buttons!
+
+📍 Location: ${mapsShortLink}
+📌 Coordinates: ${lat.toFixed(6)}, ${lng.toFixed(6)}
+⏰ Time: ${timestamp}
+
+Phone might be locked - immediate attention needed!
+
+Sent via Guardian Angel Safety App`;
 
         // Send SMS using Twilio
         const smsResults = [];
@@ -403,11 +441,12 @@ app.post('/api/sos/volume', async (req, res) => {
         return res.json({ 
             success: successfulSends > 0,
             message: successfulSends > 0 ? 
-                `🔊 Volume SOS sent to ${successfulSends} contacts` :
+                `🔊 Volume SOS sent to ${successfulSends} contacts with location` :
                 "❌ Volume SOS failed",
             details: {
                 contactsNotified: successfulSends,
                 location: { lat, lng },
+                googleMapsLink: googleMapsLink,
                 timestamp: timestamp
             }
         });
@@ -421,13 +460,20 @@ app.post('/api/sos/volume', async (req, res) => {
     }
 });
 
-// ===== TEST SMS ROUTE WITH TWILIO =====
+// ===== TEST SMS ROUTE =====
 
 app.get('/api/test-sms', async (req, res) => {
     try {
-        const testNumber = '9137403063'; // Your test number
-        const testMessage = '🚨 TEST: Guardian Angel Emergency System is working perfectly! Your safety is our priority.';
-        
+        const testNumber = '9137403063';
+        const testMessage = `🚨 TEST: Guardian Angel Emergency System
+
+This is a test message to verify SMS service.
+
+📍 Sample Location: https://maps.google.com/?q=28.6139,77.2090
+⏰ Time: ${new Date().toLocaleString()}
+
+Your safety system is working perfectly!`;
+
         console.log('🧪 Testing Twilio SMS...');
         
         const result = await sendSMS(testNumber, testMessage);
@@ -444,13 +490,13 @@ app.get('/api/test-sms', async (req, res) => {
         console.error('❌ Twilio SMS Test Error:', error);
         return res.json({
             success: false,
-            error: error.message
+            error: error.message,
+            code: error.code
         });
     }
 });
 
 // ===== LOCATION TRACKING ROUTES =====
-// (YEH SAB SAME RAHEGA - NO CHANGES)
 
 // Update User Location
 app.post('/api/location', async (req, res) => {
@@ -470,7 +516,7 @@ app.post('/api/location', async (req, res) => {
             return res.json({ success: false, message: "User not found" });
         }
 
-        // Save location to history (keep last 50 locations)
+        // Save location to history
         user.locationHistory.push({ lat, lng });
         if(user.locationHistory.length > 50) {
             user.locationHistory = user.locationHistory.slice(-50);
@@ -489,7 +535,6 @@ app.post('/api/location', async (req, res) => {
 });
 
 // ===== NEARBY SAFE PLACES ROUTE =====
-// (SAME AS BEFORE)
 
 app.get('/api/nearby-places', async (req, res) => {
     const { lat, lng, radius = 5000 } = req.query;
@@ -540,7 +585,7 @@ app.get('/api/nearby-places', async (req, res) => {
 
         return res.json({ 
             success: true, 
-            places: places.slice(0, 15) // Return top 15 nearest places
+            places: places.slice(0, 15)
         });
     } catch(err){
         console.error('❌ Nearby Places Error:', err);
@@ -566,7 +611,6 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 }
 
 // ===== SOS HISTORY ROUTE =====
-// (SAME AS BEFORE)
 
 app.get('/api/sos-history/:userId', async (req, res) => {
     try {
@@ -581,7 +625,7 @@ app.get('/api/sos-history/:userId', async (req, res) => {
         
         return res.json({ 
             success: true, 
-            history: user.sosHistory.reverse() // Latest first
+            history: user.sosHistory.reverse()
         });
     } catch(err){
         console.error('❌ SOS History Error:', err);
@@ -589,8 +633,40 @@ app.get('/api/sos-history/:userId', async (req, res) => {
     }
 });
 
+// ===== TWILIO SERVICE TEST ROUTE =====
+
+app.get('/api/test-twilio', async (req, res) => {
+    try {
+        const testNumber = '9137403063';
+        const testMessage = '🔧 Twilio Test Message - Guardian Angel System is Working!';
+        
+        console.log('🧪 Testing Twilio Service...');
+        
+        const result = await twilioClient.messages.create({
+            body: testMessage,
+            from: twilioPhone,
+            to: `+91${testNumber}`
+        });
+        
+        console.log('✅ Twilio Test Successful:', result.sid);
+        
+        return res.json({
+            success: true,
+            message: 'Twilio service is working',
+            sid: result.sid
+        });
+        
+    } catch (error) {
+        console.error('❌ Twilio Test Failed:', error.message);
+        return res.json({
+            success: false,
+            error: error.message,
+            code: error.code
+        });
+    }
+});
+
 // ===== SERVE HTML PAGES =====
-// (SAME AS BEFORE)
 
 app.get('/', (req, res) => {
     res.sendFile(path.resolve('public/index.html'));
@@ -633,5 +709,5 @@ app.listen(PORT, () => {
     console.log(`📞 Twilio Phone: ${twilioPhone}`);
     console.log(`💾 Database: MongoDB Connected`);
     console.log(`🌍 Frontend: Serving from public folder`);
-    console.log(`🔐 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`✅ All systems ready for emergency SOS!`);
 });
