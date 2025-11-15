@@ -255,7 +255,7 @@ app.post('/api/sos', async (req, res) => {
         });
 
         // Prepare emergency message with location
-        const message = `🚨 EMERGENCY ALERT! 
+       /* const message = `🚨 EMERGENCY ALERT! 
 
 ${user.name} needs immediate help!
 
@@ -269,7 +269,19 @@ Sent via Guardian Angel Safety App`;
 
         console.log('📱 Sending SMS to:', user.emergencyContacts);
         console.log('📍 Location:', { lat, lng });
-        console.log('📝 Message Length:', message.length);
+        console.log('📝 Message Length:', message.length);*/
+        const message = `🚨 EMERGENCY! ${user.name} needs immediate help!
+
+📍 Live Location: 
+https://maps.google.com/?q=${lat},${lng}
+
+⏰ Time: ${timestamp}
+
+Please check on them immediately!`;
+
+console.log('📱 Sending SMS to:', user.emergencyContacts);
+console.log('📍 Location:', { lat, lng });
+console.log('📝 Message Length:', message.length);
 
         // Send SMS to all emergency contacts
         const smsResults = [];
