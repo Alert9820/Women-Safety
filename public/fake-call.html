@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fake Call - Guardian Angel</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+        :root {
+            --primary: #ff3b6c; --secondary: #5e17eb; --dark: #1e1c2a; --light: #f8f9fa;
+            --gray: #6c757d; --success: #28a745; --danger: #dc3545;
+        }
+        body { background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%); min-height: 100vh; }
+        
+        .container { display: flex; min-height: 100vh; }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 280px; background: linear-gradient(180deg, var(--dark) 0%, #2d2b3a 100%); 
+            color: white; padding: 20px 0; display: flex; flex-direction: column;
+        }
+        .logo { display: flex; align-items: center; gap: 12px; padding: 0 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px; }
+        .logo i { color: var(--primary); font-size: 28px; }
+        .logo h1 { font-size: 22px; font-weight: 700; background: linear-gradient(to right, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .user-profile { display: flex; align-items: center; padding: 15px 20px; gap: 15px; background: rgba(255,255,255,0.05); margin: 0 15px 20px; border-radius: 12px; }
+        .user-avatar { width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(45deg, var(--primary), var(--secondary)); display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 600; color: white; }
+        .nav-item { display: flex; align-items: center; gap: 15px; padding: 15px 25px; color: rgba(255,255,255,0.8); text-decoration: none; transition: all 0.3s ease; border-left: 4px solid transparent; }
+        .nav-item:hover, .nav-item.active { background: rgba(255,255,255,0.1); border-left: 4px solid var(--primary); color: white; }
+        .logout-btn { margin: 20px; padding: 12px 20px; background: rgba(255,59,108,0.2); color: var(--primary); border: 1px solid var(--primary); border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: all 0.3s ease; }
+        .logout-btn:hover { background: var(--primary); color: white; }
+        
+        /* Main Content */
+        .main-content { flex: 1; padding: 20px; overflow-y: auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; background: white; padding: 20px 30px; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.08); }
+        .page-title { font-size: 24px; font-weight: 600; color: var(--dark); }
+        .btn { padding: 12px 25px; border-radius: 50px; border: none; font-weight: 500; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; gap: 8px; }
+        .btn-primary { background: linear-gradient(to right, var(--primary), var(--secondary)); color: white; }
+        
+        /* Fake Call Styles */
+        .fake-call-container { background: white; border-radius: 20px; padding: 30px; box-shadow: 0 8px 25px rgba(0,0,0,0.08); margin-bottom: 30px; text-align: center; }
+        .call-screen { display: none; background: linear-gradient(135deg, #1e1c2a 0%, #2d2b3a 100%); color: white; border-radius: 20px; padding: 40px; margin: 20px 0; }
+        .caller-info { margin: 30px 0; }
+        .caller-name { font-size: 28px; font-weight: 600; margin-bottom: 10px; }
+        .caller-number { font-size: 18px; color: var(--gray); }
+        .call-timer { font-size: 16px; margin: 20px 0; }
+        .call-controls { display: flex; justify-content: center; gap: 30px; margin-top: 40px; }
+        .call-btn { width: 70px; height: 70px; border-radius: 50%; border: none; font-size: 24px; cursor: pointer; transition: all 0.3s ease; }
+        .answer-btn { background: var(--success); color: white; }
+        .reject-btn { background: var(--danger); color: white; }
+        .end-btn { background: var(--danger); color: white; }
+        .call-btn:hover { transform: scale(1.1); }
+        
+        .setup-section { margin: 30px 0; }
+        .input-group { margin: 20px 0; text-align: left; }
+        .input-group label { display: block; margin-bottom: 8px; font-weight: 500; }
+        .input-group input { width: 100%; padding: 12px 15px; border: 2px solid #e0e0e0; border-radius: 10px; font-size: 16px; }
+        .saved-contacts { margin-top: 30px; }
+        .contact-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-top: 15px; }
+        .contact-card { background: var(--light); padding: 15px; border-radius: 10px; cursor: pointer; transition: all 0.3s ease; }
+        .contact-card:hover { background: #e9ecef; transform: translateY(-2px); }
+        
+        .notification {
+            position: fixed; top: 20px; right: 20px; padding: 15px 20px; border-radius: 10px; color: white; z-index: 1000;
+            animation: slideIn 0.3s ease; max-width: 300px;
+        }
+        .notification.success { background: var(--success); }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        
+        @media (max-width: 768px) {
+            .container { flex-direction: column; }
+            .sidebar { width: 100%; }
+            .header { flex-direction: column; gap: 15px; }
+            .call-controls { gap: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="logo">
+                <i class="fas fa-shield-alt"></i>
+                <h1>Guardian Angel</h1>
+            </div>
+            
+            <div class="user-profile">
+                <div class="user-avatar" id="userAvatar">U</div>
+                <div class="user-info">
+                    <h3 id="userName">User</h3>
+                    <p id="userPhone">+91 XXXXX XXXXX</p>
+                </div>
+            </div>
+            
+            <div class="nav-menu">
+                <a href="dashboard.html" class="nav-item">
+                    <i class="fas fa-home"></i><span>Dashboard</span>
+                </a>
+                <a href="sos.html" class="nav-item">
+                    <i class="fas fa-bell"></i><span>Emergency SOS</span>
+                </a>
+                <a href="location.html" class="nav-item">
+                    <i class="fas fa-location-arrow"></i><span>Location Sharing</span>
+                </a>
+                <a href="safe-places.html" class="nav-item">
+                    <i class="fas fa-map-marker-alt"></i><span>Safe Places</span>
+                </a>
+                <a href="community.html" class="nav-item">
+                    <i class="fas fa-users"></i><span>Community Alerts</span>
+                </a>
+                <a href="#" class="nav-item active">
+                    <i class="fas fa-phone"></i><span>Fake Call</span>
+                </a>
+                <a href="settings.html" class="nav-item">
+                    <i class="fas fa-cog"></i><span>Settings</span>
+                </a>
+            </div>
+            
+            <button class="logout-btn" id="logoutBtn">
+                <i class="fas fa-sign-out-alt"></i><span>Logout</span>
+            </button>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="header">
+                <h2 class="page-title">Fake Call</h2>
+                <div class="header-actions">
+                    <button class="btn btn-primary" id="quickCallBtn">
+                        <i class="fas fa-phone"></i>Quick Fake Call
+                    </button>
+                </div>
+            </div>
+            
+            <div class="fake-call-container">
+                <div class="setup-section">
+                    <h3>Setup Fake Call</h3>
+                    <div class="input-group">
+                        <label>Caller Name</label>
+                        <input type="text" id="callerName" placeholder="Enter caller name" value="Mom">
+                    </div>
+                    <div class="input-group">
+                        <label>Caller Number</label>
+                        <input type="text" id="callerNumber" placeholder="Enter phone number" value="+91 98765 43210">
+                    </div>
+                    <button class="btn btn-primary" id="scheduleCallBtn">
+                        <i class="fas fa-clock"></i>Schedule Fake Call
+                    </button>
+                </div>
+                
+                <div class="saved-contacts">
+                    <h4>Quick Contacts</h4>
+                    <div class="contact-list" id="contactList">
+                        <!-- Contacts will be loaded here -->
+                    </div>
+                </div>
+                
+                <!-- Fake Call Screen -->
+                <div class="call-screen" id="callScreen">
+                    <div class="caller-info">
+                        <div class="caller-name" id="incomingCaller">Mom</div>
+                        <div class="caller-number" id="incomingNumber">+91 98765 43210</div>
+                    </div>
+                    <div class="call-timer" id="callTimer">00:00</div>
+                    <div class="call-controls">
+                        <button class="call-btn answer-btn" id="answerBtn">
+                            <i class="fas fa-phone"></i>
+                        </button>
+                        <button class="call-btn reject-btn" id="rejectBtn">
+                            <i class="fas fa-phone-slash"></i>
+                        </button>
+                        <button class="call-btn end-btn" id="endBtn" style="display: none;">
+                            <i class="fas fa-phone-slash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Session Management
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check login
+            const userId = localStorage.getItem('userId');
+            if (!userId) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // Load user data
+            document.getElementById('userName').textContent = localStorage.getItem('userName') || 'User';
+            document.getElementById('userPhone').textContent = localStorage.getItem('userPhone') || '+91 XXXXX XXXXX';
+            document.getElementById('userAvatar').textContent = (localStorage.getItem('userName') || 'U').charAt(0).toUpperCase();
+
+            // Load saved contacts
+            loadSavedContacts();
+
+            // Event Listeners
+            document.getElementById('logoutBtn').addEventListener('click', logout);
+            document.getElementById('quickCallBtn').addEventListener('click', startQuickCall);
+            document.getElementById('scheduleCallBtn').addEventListener('click', scheduleCall);
+            document.getElementById('answerBtn').addEventListener('click', answerCall);
+            document.getElementById('rejectBtn').addEventListener('click', rejectCall);
+            document.getElementById('endBtn').addEventListener('click', endCall);
+        });
+
+        function loadSavedContacts() {
+            const contacts = JSON.parse(localStorage.getItem('fakeCallContacts')) || [
+                { name: 'Mom', number: '+91 98765 43210' },
+                { name: 'Dad', number: '+91 98765 43211' },
+                { name: 'Brother', number: '+91 98765 43212' },
+                { name: 'Friend', number: '+91 98765 43213' }
+            ];
+            
+            const contactList = document.getElementById('contactList');
+            contactList.innerHTML = contacts.map(contact => `
+                <div class="contact-card" onclick="useContact('${contact.name}', '${contact.number}')">
+                    <strong>${contact.name}</strong><br>${contact.number}
+                </div>
+            `).join('');
+        }
+
+        function useContact(name, number) {
+            document.getElementById('callerName').value = name;
+            document.getElementById('callerNumber').value = number;
+            showNotification(`Contact ${name} selected`);
+        }
+
+        function startQuickCall() {
+            const name = document.getElementById('callerName').value || 'Unknown';
+            const number = document.getElementById('callerNumber').value || 'Private Number';
+            
+            document.getElementById('incomingCaller').textContent = name;
+            document.getElementById('incomingNumber').textContent = number;
+            document.getElementById('callScreen').style.display = 'block';
+            
+            showNotification('Incoming fake call started');
+        }
+
+        function scheduleCall() {
+            const name = document.getElementById('callerName').value;
+            const number = document.getElementById('callerNumber').value;
+            
+            if (!name || !number) {
+                showNotification('Please enter caller name and number', 'error');
+                return;
+            }
+
+            // Save contact
+            const contacts = JSON.parse(localStorage.getItem('fakeCallContacts')) || [];
+            if (!contacts.find(c => c.name === name && c.number === number)) {
+                contacts.push({ name, number });
+                localStorage.setItem('fakeCallContacts', JSON.stringify(contacts));
+            }
+
+            showNotification(`Fake call scheduled from ${name} in 10 seconds`);
+            
+            setTimeout(() => {
+                startQuickCall();
+            }, 10000);
+        }
+
+        let callTimer;
+        let callSeconds = 0;
+
+        function answerCall() {
+            document.getElementById('answerBtn').style.display = 'none';
+            document.getElementById('rejectBtn').style.display = 'none';
+            document.getElementById('endBtn').style.display = 'block';
+            
+            // Start call timer
+            callSeconds = 0;
+            callTimer = setInterval(() => {
+                callSeconds++;
+                const minutes = Math.floor(callSeconds / 60).toString().padStart(2, '0');
+                const seconds = (callSeconds % 60).toString().padStart(2, '0');
+                document.getElementById('callTimer').textContent = `${minutes}:${seconds}`;
+            }, 1000);
+            
+            // Play ringtone stop and call started sound
+            showNotification('Call connected');
+        }
+
+        function rejectCall() {
+            document.getElementById('callScreen').style.display = 'none';
+            clearInterval(callTimer);
+            showNotification('Call rejected');
+        }
+
+        function endCall() {
+            document.getElementById('callScreen').style.display = 'none';
+            clearInterval(callTimer);
+            showNotification('Call ended');
+        }
+
+        function logout() {
+            localStorage.clear();
+            showNotification('Logged out successfully');
+            setTimeout(() => window.location.href = 'index.html', 1000);
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = `<i class="fas fa-${type === 'success' ? 'check' : 'exclamation-triangle'}"></i> ${message}`;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+    </script>
+</body>
+                          </html>
