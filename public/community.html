@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Community Alerts - Guardian Angel</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+        :root {
+            --primary: #ff3b6c; --secondary: #5e17eb; --dark: #1e1c2a; --light: #f8f9fa;
+            --gray: #6c757d; --success: #28a745; --warning: #ffc107; --danger: #dc3545; --info: #17a2b8;
+        }
+        body { background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%); min-height: 100vh; }
+        
+        .container { display: flex; min-height: 100vh; }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 280px; background: linear-gradient(180deg, var(--dark) 0%, #2d2b3a 100%); 
+            color: white; padding: 20px 0; display: flex; flex-direction: column;
+        }
+        .logo { display: flex; align-items: center; gap: 12px; padding: 0 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px; }
+        .logo i { color: var(--primary); font-size: 28px; }
+        .logo h1 { font-size: 22px; font-weight: 700; background: linear-gradient(to right, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .user-profile { display: flex; align-items: center; padding: 15px 20px; gap: 15px; background: rgba(255,255,255,0.05); margin: 0 15px 20px; border-radius: 12px; }
+        .user-avatar { width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(45deg, var(--primary), var(--secondary)); display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 600; color: white; }
+        .nav-item { display: flex; align-items: center; gap: 15px; padding: 15px 25px; color: rgba(255,255,255,0.8); text-decoration: none; transition: all 0.3s ease; border-left: 4px solid transparent; }
+        .nav-item:hover, .nav-item.active { background: rgba(255,255,255,0.1); border-left: 4px solid var(--primary); color: white; }
+        .logout-btn { margin: 20px; padding: 12px 20px; background: rgba(255,59,108,0.2); color: var(--primary); border: 1px solid var(--primary); border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: all 0.3s ease; }
+        .logout-btn:hover { background: var(--primary); color: white; }
+        
+        /* Main Content */
+        .main-content { flex: 1; padding: 20px; overflow-y: auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; background: white; padding: 20px 30px; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.08); }
+        .page-title { font-size: 24px; font-weight: 600; color: var(--dark); }
+        .btn { padding: 12px 25px; border-radius: 50px; border: none; font-weight: 500; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; gap: 8px; }
+        .btn-primary { background: linear-gradient(to right, var(--primary), var(--secondary)); color: white; }
+        .btn-outline { background: transparent; color: var(--dark); border: 2px solid var(--dark); }
+        
+        /* Community Alerts Styles */
+        .community-container { background: white; border-radius: 20px; padding: 30px; box-shadow: 0 8px 25px rgba(0,0,0,0.08); margin-bottom: 30px; }
+        
+        .create-alert-section { background: var(--light); padding: 25px; border-radius: 15px; margin-bottom: 30px; }
+        .alert-form { display: grid; gap: 15px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 500; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 12px 15px; border: 2px solid #e0e0e0; border-radius: 10px; font-size: 16px; }
+        .form-group textarea { height: 100px; resize: vertical; }
+        
+        .alert-type-buttons { display: flex; gap: 10px; margin: 15px 0; }
+        .type-btn { flex: 1; padding: 12px; border: 2px solid #e0e0e0; border-radius: 10px; background: white; cursor: pointer; text-align: center; transition: all 0.3s ease; }
+        .type-btn.active { border-color: var(--primary); background: rgba(255,59,108,0.1); }
+        .type-btn.emergency.active { border-color: var(--danger); background: rgba(220,53,69,0.1); }
+        
+        .alerts-feed { margin-top: 30px; }
+        .alert-card { background: white; border-radius: 15px; padding: 20px; margin-bottom: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.08); border-left: 5px solid var(--info); }
+        .alert-card.emergency { border-left-color: var(--danger); }
+        .alert-card.warning { border-left-color: var(--warning); }
+        .alert-card.safe { border-left-color: var(--success); }
+        
+        .alert-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
+        .alert-type { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; color: white; }
+        .alert-type.emergency { background: var(--danger); }
+        .alert-type.warning { background: var(--warning); }
+        .alert-type.info { background: var(--info); }
+        .alert-type.safe { background: var(--success); }
+        
+        .alert-title { font-size: 18px; font-weight: 600; margin-bottom: 10px; }
+        .alert-meta { display: flex; gap: 20px; color: var(--gray); font-size: 14px; margin-bottom: 15px; }
+        .alert-actions { display: flex; gap: 15px; margin-top: 15px; }
+        .action-btn { padding: 8px 15px; border: none; border-radius: 8px; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 5px; transition: all 0.3s ease; }
+        .action-btn.upvote { background: var(--success); color: white; }
+        .action-btn.downvote { background: var(--danger); color: white; }
+        .action-btn.share { background: var(--info); color: white; }
+        .action-btn.comment { background: var(--warning); color: white; }
+        
+        .comments-section { margin-top: 15px; padding-top: 15px; border-top: 1px solid #e0e0e0; display: none; }
+        .comment { background: var(--light); padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+        
+        .notification {
+            position: fixed; top: 20px; right: 20px; padding: 15px 20px; border-radius: 10px; color: white; z-index: 1000;
+            animation: slideIn 0.3s ease; max-width: 300px;
+        }
+        .notification.success { background: var(--success); }
+        .notification.error { background: var(--danger); }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        
+        @media (max-width: 768px) {
+            .container { flex-direction: column; }
+            .sidebar { width: 100%; }
+            .header { flex-direction: column; gap: 15px; }
+            .alert-type-buttons { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="logo">
+                <i class="fas fa-shield-alt"></i>
+                <h1>Guardian Angel</h1>
+            </div>
+            
+            <div class="user-profile">
+                <div class="user-avatar" id="userAvatar">U</div>
+                <div class="user-info">
+                    <h3 id="userName">User</h3>
+                    <p id="userPhone">+91 XXXXX XXXXX</p>
+                </div>
+            </div>
+            
+            <div class="nav-menu">
+                <a href="dashboard.html" class="nav-item">
+                    <i class="fas fa-home"></i><span>Dashboard</span>
+                </a>
+                <a href="sos.html" class="nav-item">
+                    <i class="fas fa-bell"></i><span>Emergency SOS</span>
+                </a>
+                <a href="location.html" class="nav-item">
+                    <i class="fas fa-location-arrow"></i><span>Location Sharing</span>
+                </a>
+                <a href="safe-places.html" class="nav-item">
+                    <i class="fas fa-map-marker-alt"></i><span>Safe Places</span>
+                </a>
+                <a href="#" class="nav-item active">
+                    <i class="fas fa-users"></i><span>Community Alerts</span>
+                </a>
+                <a href="fake-call.html" class="nav-item">
+                    <i class="fas fa-phone"></i><span>Fake Call</span>
+                </a>
+                <a href="settings.html" class="nav-item">
+                    <i class="fas fa-cog"></i><span>Settings</span>
+                </a>
+            </div>
+            
+            <button class="logout-btn" id="logoutBtn">
+                <i class="fas fa-sign-out-alt"></i><span>Logout</span>
+            </button>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="header">
+                <h2 class="page-title">Community Safety Alerts</h2>
+                <div class="header-actions">
+                    <button class="btn btn-outline" id="refreshBtn">
+                        <i class="fas fa-sync-alt"></i>Refresh Alerts
+                    </button>
+                    <button class="btn btn-primary" id="getLocationBtn">
+                        <i class="fas fa-location-arrow"></i>Get My Location
+                    </button>
+                </div>
+            </div>
+            
+            <div class="community-container">
+                <!-- Create Alert Section -->
+                <div class="create-alert-section">
+                    <h3>Post Safety Alert</h3>
+                    <div class="alert-form">
+                        <div class="form-group">
+                            <label>Alert Type</label>
+                            <div class="alert-type-buttons">
+                                <button class="type-btn active" data-type="info">
+                                    <i class="fas fa-info-circle"></i> Information
+                                </button>
+                                <button class="type-btn" data-type="warning">
+                                    <i class="fas fa-exclamation-triangle"></i> Warning
+                                </button>
+                                <button class="type-btn" data-type="emergency">
+                                    <i class="fas fa-bell"></i> Emergency
+                                </button>
+                                <button class="type-btn" data-type="safe">
+                                    <i class="fas fa-check-circle"></i> All Safe
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Title</label>
+                            <input type="text" id="alertTitle" placeholder="Brief description of alert">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Description</label>
+                            <textarea id="alertDescription" placeholder="Provide details about the situation"></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Location</label>
+                            <input type="text" id="alertLocation" placeholder="Current location">
+                        </div>
+                        
+                        <button class="btn btn-primary" id="postAlertBtn">
+                            <i class="fas fa-paper-plane"></i> Post Alert
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Alerts Feed -->
+                <div class="alerts-feed">
+                    <h3>Recent Community Alerts</h3>
+                    <div id="alertsList">
+                        <!-- Alerts will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Session Management
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check login
+            const userId = localStorage.getItem('userId');
+            if (!userId) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // Load user data
+            document.getElementById('userName').textContent = localStorage.getItem('userName') || 'User';
+            document.getElementById('userPhone').textContent = localStorage.getItem('userPhone') || '+91 XXXXX XXXXX';
+            document.getElementById('userAvatar').textContent = (localStorage.getItem('userName') || 'U').charAt(0).toUpperCase();
+
+            // Initialize community alerts
+            initializeCommunityAlerts();
+
+            // Event Listeners
+            document.getElementById('logoutBtn').addEventListener('click', logout);
+            document.getElementById('refreshBtn').addEventListener('click', loadAlerts);
+            document.getElementById('getLocationBtn').addEventListener('click', getCurrentLocation);
+            document.getElementById('postAlertBtn').addEventListener('click', postAlert);
+            
+            // Alert type buttons
+            document.querySelectorAll('.type-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+        });
+
+        let currentAlertType = 'info';
+
+        function initializeCommunityAlerts() {
+            // Set active alert type
+            document.querySelectorAll('.type-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    currentAlertType = this.dataset.type;
+                });
+            });
+
+            // Load existing alerts
+            loadAlerts();
+        }
+
+        function loadAlerts() {
+            const alerts = JSON.parse(localStorage.getItem('communityAlerts')) || [
+                {
+                    id: 1,
+                    type: 'emergency',
+                    title: 'Suspicious person near metro station',
+                    description: 'Man in black jacket following women near gate number 2',
+                    location: 'Rajiv Chowk Metro Station',
+                    user: 'Priya S.',
+                    time: '2 minutes ago',
+                    upvotes: 8,
+                    downvotes: 1,
+                    verified: true
+                },
+                {
+                    id: 2,
+                    type: 'warning',
+                    title: 'Poor lighting in parking area',
+                    description: 'Lights not working in basement parking, avoid going alone',
+                    location: 'Select Citywalk Mall',
+                    user: 'Anjali M.',
+                    time: '15 minutes ago',
+                    upvotes: 12,
+                    downvotes: 0,
+                    verified: false
+                },
+                {
+                    id: 3,
+                    type: 'safe',
+                    title: 'Area patrol increased',
+                    description: 'Police presence increased in this area, feeling safer now',
+                    location: 'Saket District Park',
+                    user: 'Riya K.',
+                    time: '1 hour ago',
+                    upvotes: 5,
+                    downvotes: 0,
+                    verified: true
+                }
+            ];
+
+            const alertsList = document.getElementById('alertsList');
+            alertsList.innerHTML = alerts.map(alert => `
+                <div class="alert-card ${alert.type}">
+                    <div class="alert-header">
+                        <div>
+                            <span class="alert-type ${alert.type}">
+                                <i class="fas fa-${getAlertIcon(alert.type)}"></i>
+                                ${alert.type.toUpperCase()}
+                                ${alert.verified ? '<i class="fas fa-check-circle"></i>' : ''}
+                            </span>
+                            <h4 class="alert-title">${alert.title}</h4>
+                        </div>
+                        <span style="color: var(--gray); font-size: 12px;">${alert.time}</span>
+                    </div>
+                    
+                    <p>${alert.description}</p>
+                    
+                    <div class="alert-meta">
+                        <span><i class="fas fa-map-marker-alt"></i> ${alert.location}</span>
+                        <span><i class="fas fa-user"></i> ${alert.user}</span>
+                    </div>
+                    
+                    <div class="alert-actions">
+                        <button class="action-btn upvote" onclick="voteAlert(${alert.id}, 'up')">
+                            <i class="fas fa-thumbs-up"></i> Upvote (${alert.upvotes})
+                        </button>
+                        <button class="action-btn downvote" onclick="voteAlert(${alert.id}, 'down')">
+                            <i class="fas fa-thumbs-down"></i> Downvote (${alert.downvotes})
+                        </button>
+                        <button class="action-btn comment" onclick="toggleComments(${alert.id})">
+                            <i class="fas fa-comment"></i> Comment
+                        </button>
+                        <button class="action-btn share" onclick="shareAlert(${alert.id})">
+                            <i class="fas fa-share"></i> Share
+                        </button>
+                    </div>
+                    
+                    <div class="comments-section" id="comments-${alert.id}">
+                        <div class="comment">
+                            <strong>Meera:</strong> Thanks for the alert! Will avoid that area.
+                        </div>
+                        <div class="comment">
+                            <strong>Police:</strong> We've dispatched a patrol unit to check.
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function getAlertIcon(type) {
+            const icons = {
+                'emergency': 'bell',
+                'warning': 'exclamation-triangle',
+                'info': 'info-circle',
+                'safe': 'check-circle'
+            };
+            return icons[type] || 'info-circle';
+        }
+
+        function postAlert() {
+            const title = document.getElementById('alertTitle').value;
+            const description = document.getElementById('alertDescription').value;
+            const location = document.getElementById('alertLocation').value;
+
+            if (!title || !description || !location) {
+                showNotification('Please fill all fields', 'error');
+                return;
+            }
+
+            const newAlert = {
+                id: Date.now(),
+                type: currentAlertType,
+                title: title,
+                description: description,
+                location: location,
+                user: localStorage.getItem('userName') || 'Anonymous',
+                time: 'Just now',
+                upvotes: 0,
+                downvotes: 0,
+                verified: false
+            };
+
+            // Save to local storage
+            const alerts = JSON.parse(localStorage.getItem('communityAlerts')) || [];
+            alerts.unshift(newAlert);
+            localStorage.setItem('communityAlerts', JSON.stringify(alerts));
+
+            // Clear form
+            document.getElementById('alertTitle').value = '';
+            document.getElementById('alertDescription').value = '';
+            document.getElementById('alertLocation').value = '';
+
+            // Reload alerts
+            loadAlerts();
+            showNotification('Alert posted successfully!');
+        }
+
+        function voteAlert(alertId, type) {
+            const alerts = JSON.parse(localStorage.getItem('communityAlerts')) || [];
+            const alertIndex = alerts.findIndex(a => a.id === alertId);
+            
+            if (alertIndex !== -1) {
+                if (type === 'up') {
+                    alerts[alertIndex].upvotes++;
+                } else {
+                    alerts[alertIndex].downvotes++;
+                }
+                localStorage.setItem('communityAlerts', JSON.stringify(alerts));
+                loadAlerts();
+            }
+        }
+
+        function toggleComments(alertId) {
+            const commentsSection = document.getElementById(`comments-${alertId}`);
+            commentsSection.style.display = commentsSection.style.display === 'block' ? 'none' : 'block';
+        }
+
+        function shareAlert(alertId) {
+            showNotification('Alert shared with your emergency contacts');
+        }
+
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    position => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        document.getElementById('alertLocation').value = `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`;
+                        showNotification('Location updated!');
+                    },
+                    error => {
+                        showNotification('Location access denied', 'error');
+                    }
+                );
+            }
+        }
+
+        function logout() {
+            localStorage.clear();
+            showNotification('Logged out successfully');
+            setTimeout(() => window.location.href = 'index.html', 1000);
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = `<i class="fas fa-${type === 'success' ? 'check' : 'exclamation-triangle'}"></i> ${message}`;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
