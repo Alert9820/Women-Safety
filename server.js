@@ -270,14 +270,10 @@ Sent via Guardian Angel Safety App`;
         console.log('📱 Sending SMS to:', user.emergencyContacts);
         console.log('📍 Location:', { lat, lng });
         console.log('📝 Message Length:', message.length);*/
-        const message = `🚨 EMERGENCY! ${user.name} needs immediate help!
-
-📍 Live Location: 
-https://maps.google.com/?q=${lat},${lng}
-
-⏰ Time: ${timestamp}
-
-Please check on them immediately!`;
+        const message = `SOS: ${user.name} needs help!
+Location: https://maps.google.com/?q=${lat},${lng}
+Time: ${timestamp}
+Emergency!`;
 
 console.log('📱 Sending SMS to:', user.emergencyContacts);
 console.log('📍 Location:', { lat, lng });
