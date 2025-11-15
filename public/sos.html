@@ -405,6 +405,38 @@
             font-size: 14px;
         }
         
+        .add-contact-section {
+            background: var(--light);
+            padding: 20px;
+            border-radius: 15px;
+            margin-top: 20px;
+        }
+        
+        .add-contact-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 10px;
+            align-items: end;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .form-group label {
+            font-size: 14px;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        
+        .form-group input {
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
         .notification {
             position: fixed;
             top: 20px;
@@ -491,6 +523,10 @@
             }
             
             .status-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .add-contact-form {
                 grid-template-columns: 1fr;
             }
         }
@@ -632,7 +668,25 @@
                         <span id="contactsCount">0 contacts</span>
                     </div>
                     <div class="contacts-list" id="contactsList">
-                        <!-- Contacts will be loaded here -->
+                       <!-- Contacts will be loaded here -->
+                    </div>
+                    
+                    <!-- Add Contact Section -->
+                    <div class="add-contact-section">
+                        <h4>Add Emergency Contact</h4>
+                        <div class="add-contact-form">
+                            <div class="form-group">
+                                <label>Contact Name</label>
+                                <input type="text" id="newContactName" placeholder="Enter name">
+                            </div>
+                            <div class="form-group">
+                                <label>Phone Number</label>
+                                <input type="tel" id="newContactNumber" placeholder="+91 98765 43210">
+                            </div>
+                            <button class="btn btn-primary" id="addContactBtn">
+                                <i class="fas fa-plus"></i> Add
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -684,13 +738,14 @@
             document.getElementById('logoutBtn').addEventListener('click', logout);
             document.getElementById('refreshBtn').addEventListener('click', initializeSOSPage);
             document.getElementById('testSMSBtn').addEventListener('click', testSMS);
+            document.getElementById('addContactBtn').addEventListener('click', addEmergencyContact);
         });
 
         // ===== INITIALIZE SOS PAGE =====
         function initializeSOSPage() {
             console.log('Initializing SOS page...');
             
-            // Load emergency contacts
+            // Load emergency contacts from MongoDB
             loadEmergencyContacts();
             
             // Check location permission
@@ -765,37 +820,78 @@
             }
         }
 
-        // ===== LOAD EMERGENCY CONTACTS =====
-        function loadEmergencyContacts() {
+        // ===== LOAD EMERGENCY CONTACTS FROM MONGODB =====
+        async function loadEmergencyContacts() {
             try {
-                // Load from localStorage first
-                emergencyContacts = JSON.parse(localStorage.getItem('emergencyContacts')) || [];
-                updateContactsUI();
+                const response = await fetch(`/api/contacts/${currentUser.userId}`);
+                const data = await response.json();
                 
-                // Simulate API call to MongoDB
-                setTimeout(() => {
-                    // This would be your actual API call to get contacts from MongoDB
-                    // fetch(`/api/contacts/${currentUser.userId}`)
-                    // .then(response => response.json())
-                    // .then(data => {
-                    //     if (data.success && data.contacts) {
-                    //         emergencyContacts = data.contacts;
-                    //         localStorage.setItem('emergencyContacts', JSON.stringify(emergencyContacts));
-                    //         updateContactsUI();
-                    //     }
-                    // })
-                    
-                    // For demo, using localStorage contacts
+                if (data.success) {
+                    emergencyContacts = data.contacts || [];
                     updateContactsUI();
-                }, 1000);
+                } else {
+                    showNotification('Failed to load contacts', 'error');
+                    emergencyContacts = [];
+                    updateContactsUI();
+                }
                 
             } catch (error) {
                 console.error('Error loading contacts:', error);
+                showNotification('Network error loading contacts', 'error');
                 emergencyContacts = [];
                 updateContactsUI();
             }
         }
 
+        // ===== ADD EMERGENCY CONTACT TO MONGODB =====
+        async function addEmergencyContact() {
+            const name = document.getElementById('newContactName').value.trim();
+            const number = document.getElementById('newContactNumber').value.trim();
+            
+            if (!name || !number) {
+                showNotification('Please enter both name and number', 'error');
+                return;
+            }
+
+            // Validate phone number
+            const phoneRegex = /^[\+]?[0-9\s\-\(\)]{10,}$/;
+            if (!phoneRegex.test(number)) {
+                showNotification('Please enter a valid phone number', 'error');
+                return;
+            }
+
+            try {
+                // Add to current contacts array
+                const updatedContacts = [...emergencyContacts, number];
+                
+                const response = await fetch('/api/contacts', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        userId: currentUser.userId,
+                        contacts: updatedContacts
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification(`Contact ${name} added successfully`, 'success');
+                    document.getElementById('newContactName').value = '';
+                    document.getElementById('newContactNumber').value = '';
+                    emergencyContacts = updatedContacts;
+                    updateContactsUI();
+                } else {
+                    showNotification('Failed to add contact', 'error');
+                }
+                
+            } catch (error) {
+                console.error('Error adding contact:', error);
+                showNotification('Network error adding contact', 'error');
+            }
+        }
         // ===== UPDATE CONTACTS UI =====
         function updateContactsUI() {
             const contactsList = document.getElementById('contactsList');
@@ -806,18 +902,18 @@
                 contactsList.innerHTML = `
                     <div style="text-align: center; padding: 20px; opacity: 0.7;">
                         <p>No emergency contacts set</p>
-                        <p style="font-size: 0.8rem; margin-top: 5px;">Add contacts in Settings</p>
+                        <p style="font-size: 0.8rem; margin-top: 5px;">Add contacts below</p>
                     </div>
                 `;
                 contactsCount.textContent = '0 contacts';
                 contactsStatus.textContent = 'No contacts';
                 contactsStatus.className = 'status-value error';
             } else {
-                contactsList.innerHTML = emergencyContacts.map(contact => `
+                contactsList.innerHTML = emergencyContacts.map(number => `
                     <div class="contact-item">
                         <div class="contact-info">
-                            <div class="contact-name">${contact.name}</div>
-                            <div class="contact-number">${contact.number}</div>
+                            <div class="contact-name">Emergency Contact</div>
+                            <div class="contact-number">${formatPhoneNumber(number)}</div>
                         </div>
                         <span class="status-value success">✅ Ready</span>
                     </div>
@@ -826,6 +922,14 @@
                 contactsStatus.textContent = `${emergencyContacts.length} contacts`;
                 contactsStatus.className = 'status-value success';
             }
+        }
+
+        function formatPhoneNumber(phone) {
+            // Format Indian phone numbers
+            if (phone.startsWith('+91')) {
+                return phone.replace(/(\+91)(\d{5})(\d{5})/, '$1 $2 $3');
+            }
+            return phone;
         }
 
         // ===== CHECK LOCATION PERMISSION =====
@@ -893,8 +997,9 @@
                     }
                 );
             });
-                           }
-        / ===== MAIN SOS FUNCTION =====
+        }
+
+        // ===== MAIN SOS FUNCTION =====
         async function triggerSOS() {
             if (!currentUser) {
                 showNotification('Please login first', 'error');
@@ -902,7 +1007,7 @@
             }
 
             if (emergencyContacts.length === 0) {
-                showNotification('No emergency contacts set. Please add contacts in Settings.', 'error');
+                showNotification('No emergency contacts set. Please add contacts first.', 'error');
                 return;
             }
 
@@ -922,19 +1027,26 @@
                 const location = await getCurrentLocation();
                 console.log('📍 Location obtained:', location);
                 
-                // Simulate sending SMS to emergency contacts
-                const smsPromises = emergencyContacts.map(contact => {
-                    return sendSMS(contact.number, location);
+                // Send SOS request to server (Twilio SMS via MongoDB)
+                const response = await fetch('/api/sos', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        userId: currentUser.userId,
+                        lat: location.lat,
+                        lng: location.lng,
+                        triggeredBy: 'button'
+                    })
                 });
 
-                // Wait for all SMS to be sent
-                const results = await Promise.allSettled(smsPromises);
-                const successfulSends = results.filter(result => result.status === 'fulfilled').length;
+                const result = await response.json();
+                console.log('SOS Response:', result);
                 
-                // Update UI based on results
-                if (successfulSends > 0) {
-                    showNotification(`🚨 Emergency alerts sent to ${successfulSends} contacts!`, 'success');
-                    smsStatus.textContent = `Sent to ${successfulSends} contacts`;
+                if (result.success) {
+                    showNotification(`🚨 ${result.message}`, 'success');
+                    smsStatus.textContent = `Sent to ${result.details.contactsNotified} contacts`;
                     smsStatus.className = 'status-value success';
                     
                     // Update last SOS time
@@ -947,7 +1059,7 @@
                     }, 3000);
                     
                 } else {
-                    showNotification('❌ Failed to send emergency alerts', 'error');
+                    showNotification(`❌ ${result.message}`, 'error');
                     smsStatus.textContent = 'Failed';
                     smsStatus.className = 'status-value error';
                 }
@@ -973,36 +1085,6 @@
             }
         }
 
-        // ===== SEND SMS FUNCTION =====
-        async function sendSMS(phoneNumber, location) {
-            // This would be your actual SMS API call
-            // For demo, we'll simulate the API call
-            
-            return new Promise((resolve, reject) => {
-                setTimeout(() => {
-                    // Simulate API call to Twilio or other SMS service
-                    // const response = await fetch('/api/send-sms', {
-                    //     method: 'POST',
-                    //     headers: {
-                    //         'Content-Type': 'application/json',
-                    //     },
-                    //     body: JSON.stringify({
-                    //         to: phoneNumber,
-                    //         message: `🚨 EMERGENCY ALERT! ${currentUser.name} needs help! Location: https://maps.google.com/?q=${location.lat},${location.lng}`,
-                    //         location: location
-                    //     })
-                    // });
-                    
-                    // Simulate 90% success rate for demo
-                    if (Math.random() > 0.1) {
-                        resolve({ success: true, to: phoneNumber });
-                    } else {
-                        reject(new Error('SMS failed'));
-                    }
-                }, 1000 + Math.random() * 2000); // Random delay between 1-3 seconds
-            });
-        }
-
         // ===== TEST SMS FUNCTION =====
         async function testSMS() {
             if (emergencyContacts.length === 0) {
@@ -1014,29 +1096,42 @@
             
             try {
                 const location = await getCurrentLocation();
-                const testContact = emergencyContacts[0]; // Test with first contact
                 
-                await sendSMS(testContact.number, location);
-                showNotification(`Test SMS sent to ${testContact.name}`, 'success');
+                // Use volume SOS endpoint for testing
+                const response = await fetch('/api/sos/volume', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        userId: currentUser.userId,
+                        lat: location.lat,
+                        lng: location.lng
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showNotification(`Test SMS sent successfully`, 'success');
+                } else {
+                    showNotification('Test SMS failed', 'error');
+                }
             } catch (error) {
-                showNotification('Test SMS failed', 'error');
+                showNotification('Test SMS failed: ' + error.message, 'error');
             }
         }
 
-        // ===== LOAD SOS HISTORY =====
+        // ===== LOAD SOS HISTORY FROM MONGODB =====
         async function loadSOSHistory() {
             if (!currentUser) return;
             
             try {
-                // Simulate API call to get SOS history
-                // const response = await fetch(`/api/sos-history/${currentUser.userId}`);
-                // const data = await response.json();
+                const response = await fetch(`/api/sos-history/${currentUser.userId}`);
+                const data = await response.json();
                 
-                // For demo, use localStorage
-                const sosHistory = JSON.parse(localStorage.getItem('sosHistory')) || [];
-                
-                if (sosHistory.length > 0) {
-                    const lastSOS = sosHistory[sosHistory.length - 1];
+                if (data.success && data.history.length > 0) {
+                    const lastSOS = data.history[0];
                     const lastSOSStatus = document.getElementById('lastSOSStatus');
                     const timeAgo = getTimeAgo(new Date(lastSOS.timestamp));
                     lastSOSStatus.textContent = timeAgo;
@@ -1052,15 +1147,6 @@
             const lastSOSStatus = document.getElementById('lastSOSStatus');
             lastSOSStatus.textContent = 'Just now';
             lastSOSStatus.className = 'status-value success';
-            
-            // Save to localStorage for demo
-            const sosHistory = JSON.parse(localStorage.getItem('sosHistory')) || [];
-            sosHistory.push({
-                timestamp: new Date().toISOString(),
-                contactsNotified: emergencyContacts.length,
-                location: { lat: 0, lng: 0 } // Would be actual location in real app
-            });
-            localStorage.setItem('sosHistory', JSON.stringify(sosHistory));
         }
 
         // ===== UTILITY FUNCTIONS =====
