@@ -398,7 +398,7 @@ app.post('/api/sos/volume', async (req, res) => {
         });
 
         // Volume SOS specific message
-        const message = `🚨 VOLUME BUTTON EMERGENCY!
+       /* const message = `🚨 VOLUME BUTTON EMERGENCY!
 
 ${user.name} triggered SOS using volume buttons!
 
@@ -408,7 +408,10 @@ ${user.name} triggered SOS using volume buttons!
 
 Phone might be locked - immediate attention needed!
 
-Sent via Guardian Angel Safety App`;
+Sent via Guardian Angel Safety App`;*/
+        const message = `VOLUME SOS: ${user.name} in danger!
+Loc: https://maps.google.com/?q=${lat},${lng}
+T: ${timestamp}`;
 
         // Send SMS using Twilio
         const smsResults = [];
