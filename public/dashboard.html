@@ -833,7 +833,7 @@
     }
 
     // ===== EMERGENCY CONTACTS MANAGEMENT =====
-    function loadContacts() {
+   /* function loadContacts() {
         const contactListEl = document.getElementById('contactList');
         
         if (emergencyContacts.length === 0) {
@@ -864,7 +864,39 @@
             </div>
         `).join('');
     }
+*/
+    function loadContacts() {
+    const contactListEl = document.getElementById('contactList');
+    
+    if (emergencyContacts.length === 0) {
+        contactListEl.innerHTML = `
+            <div style="text-align: center; padding: 20px; color: var(--gray);">
+                <i class="fas fa-users" style="font-size: 48px; margin-bottom: 10px;"></i>
+                <p>No emergency contacts added</p>
+                <p style="font-size: 12px; margin-top: 10px;">Add contacts to send emergency alerts</p>
+            </div>
+        `;
+        return;
+    }
 
+    contactListEl.innerHTML = emergencyContacts.map((contact, index) => `
+        <div class="contact-item">
+            <div class="contact-info">
+                <div class="contact-avatar" style="background: ${getRandomColor()};">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="contact-details">
+                    <h4>Emergency Contact ${index + 1}</h4>
+                    <p>${formatPhoneNumber(contact)}</p>
+                    <small style="color: #666; font-size: 10px;">Raw: ${contact}</small> <!-- Debug -->
+                </div>
+            </div>
+            <button class="remove-btn" onclick="removeContact(${index})">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    `).join('');
+    }
     function getRandomColor() {
         const colors = ['#ff3b6c', '#5e17eb', '#28a745', '#17a2b8', '#ffc107'];
         return colors[Math.floor(Math.random() * colors.length)];
@@ -881,7 +913,7 @@
         showNotification('Contact removed successfully', 'success');
     }
 
-    function addContact() {
+    /*function addContact() {
         const numberInput = document.getElementById('newContact');
         const number = numberInput.value.trim();
         const phoneRegex = /^(\+91[\-\s]?)?[0]?(91)?[6789]\d{9}$/;
@@ -914,6 +946,42 @@
         numberInput.value = '';
         loadContacts();
         showNotification('Contact added successfully!', 'success');
+    }*/
+    function addContact() {
+    const numberInput = document.getElementById('newContact');
+    const number = numberInput.value.trim();
+    const phoneRegex = /^(\+91[\-\s]?)?[0]?(91)?[6789]\d{9}$/;
+    
+    if (!number) {
+        showNotification('Please enter a phone number', 'error');
+        return;
+    }
+    
+    // ✅ FIX: Remove ALL non-digit characters
+    const cleanNumber = number.replace(/\D/g, '');
+    
+    console.log('Original:', number, 'Cleaned:', cleanNumber); // Debug
+    
+    if (!phoneRegex.test(cleanNumber)) {
+        showNotification('Please enter a valid Indian phone number', 'error');
+        return;
+    }
+    
+    if (emergencyContacts.includes(cleanNumber)) {
+        showNotification('This number is already in your emergency contacts', 'error');
+        return;
+    }
+    
+    if (emergencyContacts.length >= 5) {
+        showNotification('Maximum 5 emergency contacts allowed', 'error');
+        return;
+    }
+
+    emergencyContacts.push(cleanNumber);
+    localStorage.setItem('emergencyContacts', JSON.stringify(emergencyContacts));
+    numberInput.value = '';
+    loadContacts();
+    showNotification('Contact added successfully!', 'success');
     }
 
     // ===== SOS FUNCTIONALITY WITH TIMEOUT HANDLING =====
