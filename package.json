@@ -7,7 +7,7 @@
     "start": "node server.js",
     "dev": "nodemon server.js"
   },
-  "author": "Sunny Chaurasiya",
+  "author": "Shruti Shrivastav",
   "license": "MIT",
   "dependencies": {
     "node-fetch": "^2.6.7",
